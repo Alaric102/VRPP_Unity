@@ -1,5 +1,8 @@
 
-Assets
+Assets/*
+!Assets/Scripts
+*.meta
+
 Library
 Logs
 obj
