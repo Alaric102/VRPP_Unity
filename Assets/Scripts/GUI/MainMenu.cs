@@ -5,12 +5,8 @@ using UnityEngine.UI;
 using Valve.VR;
 public class MainMenu : MonoBehaviour
 {
-    [Header("Actions")]
-    public SteamVR_Action_Boolean touchTrackpad = null;
     private bool menuIsActive = false;
-    public SteamVR_Action_Vector2 positionTrackpad = null;
     private Vector2 trackpadVector = Vector2.zero;
-    public SteamVR_Action_Boolean pressTrackpad = null;
     private int menuStatus = ((int)MenuStatus.NOTHING);
     private GameObject mapPanel = null, navPanel = null;
     private VRUI vrui = null;
@@ -23,11 +19,6 @@ public class MainMenu : MonoBehaviour
     }
     void Awake()
     {
-        // attach actions to functions
-        touchTrackpad.onChange += TouchTrackpad;
-        positionTrackpad.onAxis += TrackpadPosition;
-        pressTrackpad.onStateUp += TrackpadPressRelease;
-
         // find objects of VRUI
         mapPanel = transform.GetChild(0).gameObject;
         navPanel = transform.GetChild(1).gameObject;
@@ -82,13 +73,13 @@ public class MainMenu : MonoBehaviour
                 break;
         }
     }
-    private void TouchTrackpad(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource, bool newState){
+    public void processTouchTrackpad(bool newState){
         menuIsActive = newState;
     }
-    private void TrackpadPosition(SteamVR_Action_Vector2 fromAction, SteamVR_Input_Sources fromSource, Vector2 axis, Vector2 delta){
+    public void processTrackpadPosition(Vector2 axis){
         trackpadVector = axis;
     }
-    private void TrackpadPressRelease(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource){
+    public void processTrackpadPressRelease(){
         if (!menuIsActive){
             return;
         }

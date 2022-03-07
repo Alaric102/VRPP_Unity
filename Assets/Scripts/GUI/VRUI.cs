@@ -6,11 +6,11 @@ using Valve.VR;
 
 public class VRUI : MonoBehaviour
 {
-    [Header("RoundMenu")]
-    public SteamVR_Action_Boolean touch = null;
-    public SteamVR_Action_Boolean press= null;
-    public SteamVR_Action_Vector2 touchPosition = null;
-    
+    // [Header("RoundMenu")]
+    public SteamVR_Action_Boolean touchTrackpad = null;
+    public SteamVR_Action_Vector2 positionTrackpad = null;
+    public SteamVR_Action_Boolean pressTrackpad = null;
+    public SteamVR_Action_Boolean pressTrigger = null;
     private enum MenuStatus : int
     {
         NOTHING,
@@ -19,88 +19,73 @@ public class VRUI : MonoBehaviour
         NAVIGATION
     }
     private GameObject mainMenuObj = null, mapMenuObj = null, navMenuObj = null;
-    private Vector2 trackpadVector = Vector2.zero;
-    private bool activateMenu = false;
-    private int menuStatus = ((int)MenuStatus.MAIN);
     void Awake()
     {
-        // Attach actions
-        touch.onChange += Touch;
-        press.onStateUp += PressRelease;
-        touchPosition.onAxis += Position;
+        touchTrackpad.onChange += TouchTrackpad;
+        positionTrackpad.onAxis += TrackpadPosition;
+        pressTrackpad.onStateUp += TrackpadPressRelease;
+        pressTrigger.onState += TriggerPress;
 
-        // Get context menu options
+        // find objects of VRUI
         mainMenuObj = transform.GetChild(0).gameObject;
         mapMenuObj = transform.GetChild(1).gameObject;
         navMenuObj = transform.GetChild(2).gameObject;
 
+    }
+    void Start(){
         mainMenuObj.SetActive(true);
         mapMenuObj.SetActive(false);
         navMenuObj.SetActive(false);
     }
     void Update(){
-        mainMenuObj.GetComponent<Canvas>().enabled = false;
-        mainMenuObj.SetActive(false);
-        mapMenuObj.GetComponent<Canvas>().enabled = false;
+
+    }
+    private void TouchTrackpad(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource, bool newState){
+        if (mainMenuObj.activeSelf){
+            mainMenuObj.GetComponent<MainMenu>().processTouchTrackpad(newState);
+        } else if (mapMenuObj.activeSelf){
+
+        } else if (navMenuObj.activeSelf){
+            navMenuObj.GetComponent<NavigationMenu>().processTouchTrackpad(newState);
+        }
+    }
+    private void TrackpadPosition(SteamVR_Action_Vector2 fromAction, SteamVR_Input_Sources fromSource, Vector2 axis, Vector2 delta){
+        if (mainMenuObj.activeSelf){
+            mainMenuObj.GetComponent<MainMenu>().processTrackpadPosition(axis);
+        } else if (mapMenuObj.activeSelf){
+
+        } else if (navMenuObj.activeSelf){
+            navMenuObj.GetComponent<NavigationMenu>().processTrackpadPosition(axis);
+        }
+    }
+    private void TrackpadPressRelease(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource){
+        if (mainMenuObj.activeSelf){
+            mainMenuObj.GetComponent<MainMenu>().processTrackpadPressRelease();
+        } else if (mapMenuObj.activeSelf){
+            // mainMenuObj.GetComponent<>().processTrackpadPressRelease();
+        } else if (navMenuObj.activeSelf){
+            navMenuObj.GetComponent<NavigationMenu>().processTrackpadPressRelease();
+        }
+    }
+    private void TriggerPress(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource){
+        
+    }
+    public void SetActiveMainMenu(){
         mapMenuObj.SetActive(false);
-        navMenuObj.GetComponent<Canvas>().enabled = false;
         navMenuObj.SetActive(false);
 
-        if (activateMenu){
-            switch (menuStatus) {
-                case ((int)MenuStatus.MAIN):
-                    mainMenuObj.SetActive(true);
-                    mainMenuObj.GetComponent<Canvas>().enabled = true;
-                    mainMenuObj.GetComponent<MainMenu>().Proccess(trackpadVector);
-                    break;
-                case ((int)MenuStatus.MAPPING):
-                    mapMenuObj.SetActive(true);
-                    mapMenuObj.GetComponent<Canvas>().enabled = true;
-                    mapMenuObj.GetComponent<MappingMenu>().Proccess(trackpadVector);
-                    break;
-                case ((int)MenuStatus.NAVIGATION):
-                    navMenuObj.SetActive(true);
-                    navMenuObj.GetComponent<Canvas>().enabled = true;
-                    navMenuObj.GetComponent<NavigationMenu>().Proccess(trackpadVector);
-                    break;
-                default:
-                Debug.Log("Menu is not proccesable.");
-                    break;
-            }
-        }
+        mainMenuObj.SetActive(true);
     }
-    void OnDestroy()
-    {
-        // MenuCanvas.gameObject.SetActive(false);
-        touch.onChange -= Touch;
-        press.onStateUp -= PressRelease;
-        touchPosition.onAxis -= Position;
-    }
+    public void SetActiveMappingMenu(){
+        mainMenuObj.SetActive(false);
+        navMenuObj.SetActive(false);
 
-    private void Position(SteamVR_Action_Vector2 fromAction, SteamVR_Input_Sources fromSource, Vector2 axis, Vector2 delta){
-        trackpadVector = axis;
+        mapMenuObj.SetActive(true);
     }
-    private void Touch(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource, bool newState){
-        activateMenu = newState;
-    }
+    public void SetActiveNavigationMenu(){
+        mainMenuObj.SetActive(false);
+        mapMenuObj.SetActive(false);
 
-    private void PressRelease(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource){
-        switch (menuStatus) {
-            case ((int)MenuStatus.MAIN):
-                mainMenuObj.GetComponent<MainMenu>().ProccessTrigger();
-                break;
-            case ((int)MenuStatus.MAPPING):
-                mapMenuObj.GetComponent<MappingMenu>().ProccessTrigger();
-                break;
-            case ((int)MenuStatus.NAVIGATION):
-                navMenuObj.GetComponent<NavigationMenu>().ProccessTrigger();
-                break;
-            default:
-                break;
-        }
-    }
-
-    public void SetMenuStatus(int newStatus){
-        menuStatus = newStatus;
+        navMenuObj.SetActive(true);
     }
 }
