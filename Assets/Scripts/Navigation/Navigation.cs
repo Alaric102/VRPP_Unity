@@ -22,12 +22,16 @@ public class Navigation : MonoBehaviour
         
     }
 
-    public void setStartState(Vector3 v, Quaternion q){
+    public void SetStartState(Vector3 v, Quaternion q){
         startState.position = v;
         startState.rotation = q;
     }
-    public void setGoalState(Vector3 v, Quaternion q){ 
+    public void SetGoalState(Vector3 v, Quaternion q){ 
         goalState.position = v;
         goalState.rotation = q;    
+    }
+
+    public void StartPlanning(){
+
     }
 }

@@ -69,7 +69,7 @@ public class MappingMenu : MonoBehaviour
                 break;
             case ((int)MainMenuStatus.BACK):
                 Debug.Log("Go to main (1)");
-                transform.parent.GetComponent<VRUI>().SetMenuStatus(1);
+                // transform.parent.GetComponent<VRUI>().SetMenuStatus(1);
                 break;
             default:
                 Debug.Log("Main menu can't recognize trigger.");

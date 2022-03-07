@@ -82,9 +82,9 @@ public class NavigationMenu : MonoBehaviour
             helpBar.SetHelpText(prefixStr + "\n" + data, 20);
 
             if (isSettingStartPosition){
-                navigation.setStartState(setStatePosition, setStateRotation);
+                navigation.SetStartState(setStatePosition, setStateRotation);
             } else if (isSettingGoalPosition){
-                navigation.setGoalState(setStatePosition, setStateRotation);
+                navigation.SetGoalState(setStatePosition, setStateRotation);
             }
         }
     }
@@ -184,7 +184,7 @@ public class NavigationMenu : MonoBehaviour
                 isSettingGoalPosition = true;
                 break;
             case ((int)MenuStatus.START_PLAN):
-                
+                navigation.StartPlanning();
                 break;
             case ((int)MenuStatus.BACK):
                 vrui.SetActiveMainMenu();
