@@ -105,6 +105,7 @@
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\MessageHandling\LaserScanReader.cs" />
      <Compile Include="Assets\Scripts\Mapping\DiscreteMapper.cs" />
      <Compile Include="Assets\Scripts\Navigation\Navigation.cs" />
+     <Compile Include="Assets\Scripts\GUI\HelpBar.cs" />
      <None Include="Assets\RosSharp\Plugins\Microsoft\System.Threading.Tasks.Extensions.xml" />
      <None Include="Assets\RosSharp\Plugins\External\websocket-sharp.xml" />
      <None Include="Assets\RosSharp\Plugins\External\Newtonsoft.Json.Bson.xml" />

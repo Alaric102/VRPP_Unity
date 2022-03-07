@@ -24,7 +24,7 @@ public class VRUI : MonoBehaviour
         touchTrackpad.onChange += TouchTrackpad;
         positionTrackpad.onAxis += TrackpadPosition;
         pressTrackpad.onStateUp += TrackpadPressRelease;
-        pressTrigger.onState += TriggerPress;
+        pressTrigger.onStateUp += TriggerPress;
 
         // find objects of VRUI
         mainMenuObj = transform.GetChild(0).gameObject;
@@ -68,7 +68,9 @@ public class VRUI : MonoBehaviour
         }
     }
     private void TriggerPress(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource){
-        
+        if (navMenuObj.activeSelf){
+            navMenuObj.GetComponent<NavigationMenu>().processTriggerPress();
+        }
     }
     public void SetActiveMainMenu(){
         mapMenuObj.SetActive(false);
