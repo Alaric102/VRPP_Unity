@@ -20,14 +20,10 @@ public class SocketBridge : MonoBehaviour
         public byte[] buffer = new byte[BufferSize];
         public StringBuilder sb = new StringBuilder();
     }
-
-    private enum UnityTypeEnum
-    {
-        Vector2Int_t = 1
-    }
-    void Awake()
-    {
-
+    enum UnityCommands {
+        setStartPoint = 1,
+        setGoalPoint,
+        startPlanning
     }
     void Start()
     {
@@ -40,8 +36,6 @@ public class SocketBridge : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        // sendData("Hello world.");
-        // sendVector2Int(Vector2Int.up * 2);
     }
 
     void OnDestroy(){
@@ -63,8 +57,6 @@ public class SocketBridge : MonoBehaviour
                 Debug.Log("Server is finished");
             }
     }
-
-    // Process the client connection.
     private static void AcceptTcpClientCallback(IAsyncResult ar)
     {
         clientConnected.Set();
@@ -109,20 +101,49 @@ public class SocketBridge : MonoBehaviour
         }  
     }
 
-    public void sendData(string s){
+    public bool SendStartPoint(Vector3 pos, Quaternion rot){
+        byte[] cmdBytes = System.BitConverter.GetBytes(Convert.ToUInt16(UnityCommands.setStartPoint));
+        byte[] posBytes = GetBytesVector3(ref pos);
+        Vector3 rotEuler = rot.eulerAngles;
+        byte[] rotBytes = GetBytesVector3(ref rotEuler);
+        byte[] msg = CombineBytes(CombineBytes(cmdBytes, posBytes), rotBytes);
+        return sendBytes(ref msg);
+    } // Send start state message
+    public bool SendGoalPoint(Vector3 pos, Quaternion rot){
+        byte[] cmdBytes = System.BitConverter.GetBytes(Convert.ToUInt16(UnityCommands.setGoalPoint));
+        byte[] posBytes = GetBytesVector3(ref pos);
+        Vector3 rotEuler = rot.eulerAngles;
+        byte[] rotBytes = GetBytesVector3(ref rotEuler);
+        byte[] msg = CombineBytes(CombineBytes(cmdBytes, posBytes), rotBytes);
+        return sendBytes(ref msg);        
+    } // Send goal state message
+    public bool RequestPlan(){
+        byte[] cmdBytes = System.BitConverter.GetBytes(Convert.ToUInt16(UnityCommands.startPlanning));
+        byte[] msg = cmdBytes;
+        return sendBytes(ref msg);         
+    } // Start planning
+    private byte[] CombineBytes(byte[] first, byte[] second) {
+        byte[] ret = new byte[first.Length + second.Length];
+        Buffer.BlockCopy(first, 0, ret, 0, first.Length);
+        Buffer.BlockCopy(second, 0, ret, first.Length, second.Length);
+        return ret;
+    } // combine two byte[] arrays
+    private byte[] GetBytesVector3(ref Vector3 v){
+        byte[] bytesX = System.BitConverter.GetBytes(v.x);
+        byte[] bytesY = System.BitConverter.GetBytes(v.y);
+        byte[] bytesZ = System.BitConverter.GetBytes(v.z);
+        return CombineBytes(CombineBytes(bytesX, bytesY), bytesZ);
+    } // transform Vector3 to bytes[]
+    private bool sendBytes(ref byte[] data){
         if (clientSocket == null){
-            return;
+            return false;
         }
         if (!clientSocket.Connected){  
-            return;
+            return false;
         }
-        byte[] byData = System.Text.Encoding.ASCII.GetBytes(s + '\n');
-        clientSocket.Send(byData, 0, byData.Length, SocketFlags.None);
-        Debug.Log("Sended: " + s);
+        byte[] prefix = {255, 255};
+        byte[] dataLen = System.BitConverter.GetBytes(Convert.ToUInt16(data.Length));
+        byte[] byteData = CombineBytes(CombineBytes(prefix, dataLen), data);
+        return (byteData.Length == clientSocket.Send(byteData, 0, byteData.Length, SocketFlags.None));
     }
-    public String getVector2IntMsg(Vector2Int v){
-        String str_msg = v.x.ToString() + " " + v.y.ToString();
-        return str_msg;
-    }
-
 }

@@ -14,7 +14,7 @@ public class NavigationMenu : MonoBehaviour
     private GameObject setStartStatePanel = null, setGoalStatePanel = null, startPlanningPanel = null, resetPanel = null;
     private VRUI vrui = null;
     private HelpBar helpBar = null;
-    LineRenderer lineRenderer = null;
+    private LineRenderer lineRenderer = null;
     private Vector3 setStatePosition;
     private Quaternion setStateRotation;
     private enum MenuStatus : int {
@@ -28,9 +28,8 @@ public class NavigationMenu : MonoBehaviour
     [Header("External modules")]
     public GameObject ActiveController;
     public Navigation navigation = null;
-    void Awake()
-    {
-        // find objects of VRUI
+    void Awake() {
+        // find objects of VR GUI
         setStartStatePanel = transform.GetChild(0).gameObject;
         setGoalStatePanel = transform.GetChild(1).gameObject;
         startPlanningPanel = transform.GetChild(2).gameObject;
@@ -41,16 +40,16 @@ public class NavigationMenu : MonoBehaviour
     }
 
     void Start(){
+        // clean lineRenderer
         lineRenderer.positionCount = 0;
-
+        // set default values
         setStatePosition = Vector3.zero;
         setStateRotation = Quaternion.identity;
     }
-    void Update()
-    {
+    void Update() {
         lineRenderer.positionCount = 0;
-
         if (menuIsActive && !(isSettingStartPosition || isSettingGoalPosition)){
+            // show menu if menu is active and not setting start/goal states
             setStartStatePanel.SetActive(true);
             setGoalStatePanel.SetActive(true);
             startPlanningPanel.SetActive(true);
@@ -58,9 +57,9 @@ public class NavigationMenu : MonoBehaviour
 
             getMenuStatus(trackpadVector);
             HighlightSelected();
-
             helpBar.SetHelpText("Press trackpad to select option.");
         } else {
+            // else hide menu panels
             setStartStatePanel.SetActive(false);
             setGoalStatePanel.SetActive(false);
             startPlanningPanel.SetActive(false);
@@ -70,25 +69,29 @@ public class NavigationMenu : MonoBehaviour
         }
 
         if(isSettingStartPosition || isSettingGoalPosition){
+            // if setting start/goal states
             string prefixStr;
             if (isSettingRotation){
+                // if setting rotation
                 setStateRotation = GetRotation();
                 prefixStr = "Press trigger to finish.";
             } else {
+                // if setting position
                 setStatePosition = GetPosition();
                 prefixStr = "Press trigger to set rotation.";
             }
             string data = GetHelpText(setStatePosition, setStateRotation);
             helpBar.SetHelpText(prefixStr + "\n" + data, 20);
 
+            // update states in navigation module
             if (isSettingStartPosition){
-                navigation.SetStartState(setStatePosition, setStateRotation);
+                navigation.SetStartState(ref setStatePosition, ref setStateRotation);
             } else if (isSettingGoalPosition){
-                navigation.SetGoalState(setStatePosition, setStateRotation);
+                navigation.SetGoalState(ref setStatePosition, ref setStateRotation);
             }
         }
     }
-    public int getMenuStatus(Vector2 axis){
+    private int getMenuStatus(Vector2 axis){
         float angle = Vector2.Angle(Vector2.right, axis) * Mathf.Sign(axis.y);
         float length = Vector2.SqrMagnitude(axis);
         menuStatus = ((int)MenuStatus.NOTHING);
@@ -113,7 +116,7 @@ public class NavigationMenu : MonoBehaviour
         setGoalStatePanel.GetComponent<Image>().color = Color.white;    
         startPlanningPanel.GetComponent<Image>().color = Color.white;
         resetPanel.GetComponent<Image>().color = Color.white;
-
+        // Switch color for selected menu option
         switch (menuStatus) {
             case ((int)MenuStatus.SET_START):
                 setStartStatePanel.GetComponent<Image>().color = Color.green;
@@ -154,7 +157,6 @@ public class NavigationMenu : MonoBehaviour
     private Quaternion GetRotation(){
         return ActiveController.transform.rotation;
     }
-
     private string GetHelpText(Vector3 pos, Quaternion rot){
         Vector3 rotEuler = rot.eulerAngles;
         string res = 
@@ -194,7 +196,6 @@ public class NavigationMenu : MonoBehaviour
         }
     }
     public void processTriggerPress(){
-        Debug.Log("trigger!");
         if (isSettingStartPosition || isSettingGoalPosition){
             if (isSettingRotation){
                 isSettingStartPosition = false;
@@ -204,7 +205,5 @@ public class NavigationMenu : MonoBehaviour
                 isSettingRotation = true;
             }
         }
-
-
     }
 }
