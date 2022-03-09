@@ -197,25 +197,5 @@ public class Mapper : MonoBehaviour
         );
     }
 
-    enum UnityCommands {
-        setStartPoint = 1,
-        setGoalPoint,
-        startPlanning
-    }
 
-    public void sendStartPoint2D(){
-        string str_msg = ((int)UnityCommands.setStartPoint).ToString() + " " +
-            socketBridge.getVector2IntMsg(startPoint);
-        socketBridge.sendData(str_msg);
-    }
-    public void sendGoalPoint2D(){
-        string str_msg = ((int)UnityCommands.setGoalPoint).ToString() + " " +
-            socketBridge.getVector2IntMsg(goalPoint);
-        socketBridge.sendData(str_msg);
-    }
-
-    public void startPlanning(){
-        string str_msg = ((int)UnityCommands.setGoalPoint).ToString();
-        socketBridge.sendData(str_msg);
-    }
 }
