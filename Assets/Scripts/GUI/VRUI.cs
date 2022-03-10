@@ -44,7 +44,7 @@ public class VRUI : MonoBehaviour
         if (mainMenuObj.activeSelf){
             mainMenuObj.GetComponent<MainMenu>().processTouchTrackpad(newState);
         } else if (mapMenuObj.activeSelf){
-
+            mapMenuObj.GetComponent<MappingMenu>().processTouchTrackpad(newState);
         } else if (navMenuObj.activeSelf){
             navMenuObj.GetComponent<NavigationMenu>().processTouchTrackpad(newState);
         }
@@ -53,7 +53,7 @@ public class VRUI : MonoBehaviour
         if (mainMenuObj.activeSelf){
             mainMenuObj.GetComponent<MainMenu>().processTrackpadPosition(axis);
         } else if (mapMenuObj.activeSelf){
-
+            mapMenuObj.GetComponent<MappingMenu>().processTrackpadPosition(axis);
         } else if (navMenuObj.activeSelf){
             navMenuObj.GetComponent<NavigationMenu>().processTrackpadPosition(axis);
         }
@@ -62,7 +62,7 @@ public class VRUI : MonoBehaviour
         if (mainMenuObj.activeSelf){
             mainMenuObj.GetComponent<MainMenu>().processTrackpadPressRelease();
         } else if (mapMenuObj.activeSelf){
-            // mainMenuObj.GetComponent<>().processTrackpadPressRelease();
+            mapMenuObj.GetComponent<MappingMenu>().processTrackpadPressRelease();
         } else if (navMenuObj.activeSelf){
             navMenuObj.GetComponent<NavigationMenu>().processTrackpadPressRelease();
         }

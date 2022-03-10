@@ -42,7 +42,7 @@ public class MainMenu : MonoBehaviour
             helpBar.SetHelpText("Use trackpad to see Main Menu");
         }
     }
-    public int getMenuStatus(Vector2 axis){
+    private int getMenuStatus(Vector2 axis){
         float angle = Vector2.Angle(Vector2.right, axis) * Mathf.Sign(axis.y);
         float length = Vector2.SqrMagnitude(axis);
         menuStatus = ((int)MenuStatus.NOTHING);

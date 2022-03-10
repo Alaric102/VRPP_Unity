@@ -13,8 +13,6 @@ public class Mapper : MonoBehaviour
 
     [Header("Output settings")]
     public GameObject panel = null;
-    public Transform startPointPrefab;
-    public Transform goalPointPrefab;
     
     [Header("Socket interface")]
     public SocketBridge socketBridge;
@@ -34,8 +32,6 @@ public class Mapper : MonoBehaviour
     void Awake()
     {
         Boundary = transform.GetChild(0);
-        startPointObj = Instantiate(startPointPrefab, Vector3.zero, Quaternion.identity);
-        goalPointObj = Instantiate(goalPointPrefab, Vector3.zero, Quaternion.identity);
     }
 
     void Start(){
@@ -156,7 +152,7 @@ public class Mapper : MonoBehaviour
     }
 
     public void SaveMap(){
-        SaveTextureAsPNG(mapImage, Application.dataPath + "map.png");
+        SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VR_PP/launch" + "/map.png");
     }
     private static void SaveTextureAsPNG(Texture2D _texture, string _fullPath)
     {
@@ -196,6 +192,4 @@ public class Mapper : MonoBehaviour
             ((int)Mathf.Round(newPoint.z / gridSize.z))
         );
     }
-
-
 }

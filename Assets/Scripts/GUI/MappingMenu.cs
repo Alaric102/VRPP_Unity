@@ -5,74 +5,110 @@ using UnityEngine.UI;
 
 public class MappingMenu : MonoBehaviour
 {
-    private GameObject makeMapPanel = null, saveMapPanel = null, resetPanel = null;
-    public GameObject mapper;
-    private enum MainMenuStatus : int
+    private bool menuIsActive = true;
+    private Vector2 trackpadVector = Vector2.zero;
+    private int menuStatus = ((int)MenuStatus.NOTHING);
+    private GameObject makeMapPanel = null, saveMapPanel = null, resetPanel = null, currentMapPanel = null;
+    private VRUI vrui = null;
+    private HelpBar helpBar = null;
+    
+    [Header("External modules")]
+    public Mapper mapper = null;
+    private enum MenuStatus : int
     {
         NOTHING,
         MAKE_MAP, 
         SAVE_MAP,
         BACK
     }
-    private int menuMod = ((int)MainMenuStatus.NOTHING);
     void Awake()
     {
         makeMapPanel = transform.GetChild(0).gameObject;
         saveMapPanel = transform.GetChild(1).gameObject;
         resetPanel = transform.GetChild(2).gameObject;
+        currentMapPanel = transform.GetChild(3).gameObject;
+
+        vrui = transform.parent.GetComponent<VRUI>();
+        helpBar = transform.parent.GetChild(transform.parent.childCount - 1).GetComponent<HelpBar>();
     }
 
     // Update is called once per frame
     void Update()
     {
-        menuMod = ((int)MainMenuStatus.NOTHING);
-        resetPanel.GetComponent<Image>().color = Color.white;
-        makeMapPanel.GetComponent<Image>().color = Color.white;
-        saveMapPanel.GetComponent<Image>().color = Color.white;
-    }
-    public void Proccess(Vector2 axis){
-        float angle = Vector2.Angle(Vector2.right, axis);
-        float length = Vector2.SqrMagnitude(axis);
-        
-        // Set default parameters
-        menuMod = ((int)MainMenuStatus.NOTHING);
-        resetPanel.GetComponent<Image>().color = Color.white;
-        makeMapPanel.GetComponent<Image>().color = Color.white;
-        saveMapPanel.GetComponent<Image>().color = Color.white;
-        
-        // Highlight menu selection
-        if (length > 0.25f){
-            if (angle > 90.0f){
-                makeMapPanel.GetComponent<Image>().color = Color.green;
-                menuMod = ((int)MainMenuStatus.MAKE_MAP);
-            } else {
-                saveMapPanel.GetComponent<Image>().color = Color.green;
-                menuMod = ((int)MainMenuStatus.SAVE_MAP);
-            }
-        } else if (length < 0.15f){
-            resetPanel.GetComponent<Image>().color = Color.green;
-            menuMod = ((int)MainMenuStatus.BACK);
+        if (menuIsActive){
+            makeMapPanel.SetActive(true);
+            saveMapPanel.SetActive(true);
+            resetPanel.SetActive(true);
+            currentMapPanel.SetActive(true);
+
+            getMenuStatus(trackpadVector);
+            HighlightSelected();
+            helpBar.SetHelpText("Press trackpad to select option.");
+        } else {
+            makeMapPanel.SetActive(false);
+            saveMapPanel.SetActive(false);
+            resetPanel.SetActive(false);
+            currentMapPanel.SetActive(false);
+
+            helpBar.SetHelpText("Use trackpad to see Mapping Menu");
         }
     }
-    public void ProccessTrigger(){
-        switch (menuMod) {
-            case ((int)MainMenuStatus.NOTHING):
-                Debug.Log("Nothing");
+    private int getMenuStatus(Vector2 axis){
+        float angle = Vector2.Angle(Vector2.right, axis) * Mathf.Sign(axis.y);
+        float length = Vector2.SqrMagnitude(axis);
+        menuStatus = ((int)MenuStatus.NOTHING);
+
+        if (length > 0.5f){
+            if ( Mathf.Abs(angle) > 135.0f ){
+                menuStatus = ((int)MenuStatus.MAKE_MAP);
+            } else if ( Mathf.Abs(angle) < 45.0f ){
+                menuStatus = ((int)MenuStatus.SAVE_MAP);
+            }
+        } else if (length < 0.2f){
+            menuStatus = ((int)MenuStatus.BACK);
+        }
+        return menuStatus;
+    }
+    private void HighlightSelected(){
+        makeMapPanel.GetComponent<Image>().color = Color.white;
+        saveMapPanel.GetComponent<Image>().color = Color.white;    
+        resetPanel.GetComponent<Image>().color = Color.white;
+        // Switch color for selected menu option
+        switch (menuStatus) {
+            case ((int)MenuStatus.MAKE_MAP):
+                makeMapPanel.GetComponent<Image>().color = Color.green;
                 break;
-            case ((int)MainMenuStatus.MAKE_MAP):
-                Debug.Log("Make Map");
-                mapper.GetComponent<Mapper>().MakeMap();
+            case ((int)MenuStatus.SAVE_MAP):
+                saveMapPanel.GetComponent<Image>().color = Color.green;  
                 break;
-            case ((int)MainMenuStatus.SAVE_MAP):
-                Debug.Log("Save map");
-                mapper.GetComponent<Mapper>().SaveMap();
-                break;
-            case ((int)MainMenuStatus.BACK):
-                Debug.Log("Go to main (1)");
-                // transform.parent.GetComponent<VRUI>().SetMenuStatus(1);
+            case ((int)MenuStatus.BACK):
+                resetPanel.GetComponent<Image>().color = Color.green;
                 break;
             default:
-                Debug.Log("Main menu can't recognize trigger.");
+                break;
+        }
+    }
+    public void processTouchTrackpad(bool newState){
+        menuIsActive = newState;
+    }
+    public void processTrackpadPosition(Vector2 axis){
+        trackpadVector = axis;
+    }
+    public void processTrackpadPressRelease(){
+        if (!menuIsActive){
+            return;
+        }
+        switch (menuStatus) {
+            case ((int)MenuStatus.MAKE_MAP):
+                mapper.MakeMap();
+                break;
+            case ((int)MenuStatus.SAVE_MAP):
+                mapper.SaveMap();
+                break;
+            case ((int)MenuStatus.BACK):
+                vrui.SetActiveMainMenu();
+                break;
+            default:
                 break;
         }
     }
