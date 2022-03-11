@@ -126,15 +126,19 @@ public class Mapper : MonoBehaviour
             return;
         }
 
-        Vector3Int voxelMapSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
-        voxelMap.setMapSize(ref voxelMapSize);
 
         Vector2Int chunksNumber2D = new Vector2Int(chunksNumber.x, chunksNumber.z);
         imageSize = chunksNumber2D * ((int)Mathf.Pow(2, maxLevel));
         Debug.Log("Image size: " + imageSize);
         
+        Vector3Int voxelMapSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
+        voxelMap.SetMapSize(ref voxelMapSize);
         Vector3 range = maxCorner - minCorner;
-        gridSize = new Vector3(range.x / imageSize.x, range.y, range.z / imageSize.y);
+        Vector3 gridSize = new Vector3(
+            range.x / voxelMapSize.x, 
+            range.y / voxelMapSize.y,
+            range.z / voxelMapSize.z);
+        voxelMap.SetGridSize(ref gridSize);
 
         mapImage = new Texture2D(imageSize.x, imageSize.y, TextureFormat.RGB24, false);
         GenerateChunks();

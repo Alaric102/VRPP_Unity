@@ -91,28 +91,22 @@ public class BinRunner : MonoBehaviour
         currentLevel = v;
     }
 
-    private void setMapCell()
-    {
-        mapper.setMapPixel(imageIdx.x, imageIdx.z);
-        // transform.parent.GetComponent<Mapper>().setMapPixel(imageIdx.x, imageIdx.z);
-        Destroy(gameObject);
-    }
-
     void OnDestroy(){
-        
-        Vector3 minCorner = transform.parent.GetComponent<Mapper>().getMinCorner();
-        Vector3 globalPos = transform.parent.transform.TransformPoint(transform.position);
-        Vector3 shiftPos = globalPos + transform.localScale / 2.0f;
-        Vector3 imagePos = shiftPos - minCorner;
-        
-        imageIdx = new Vector3Int(
-            ((int)Mathf.Round(imagePos.x/transform.localScale.x)) - 1,
-            ((int)Mathf.Round(imagePos.y/transform.localScale.y)) - 1,
-            ((int)Mathf.Round(imagePos.z/transform.localScale.z)) - 1
-        );
-        
-        if (isObstacle)
-            setMapCell();
-        voxelMap.setMapVoxel(ref imageIdx, isObstacle);
+        if (currentLevel == maxLevel){
+            Vector3 minCorner = transform.parent.GetComponent<Mapper>().getMinCorner();
+            Vector3 globalPos = transform.parent.transform.TransformPoint(transform.position);
+            Vector3 shiftPos = globalPos + transform.localScale / 2.0f;
+            Vector3 imagePos = shiftPos - minCorner;
+            
+            imageIdx = new Vector3Int(
+                ((int)Mathf.Round(imagePos.x/transform.localScale.x)) - 1,
+                ((int)Mathf.Round(imagePos.y/transform.localScale.y)) - 1,
+                ((int)Mathf.Round(imagePos.z/transform.localScale.z)) - 1
+            );
+            
+            voxelMap.setMapVoxel(ref imageIdx, isObstacle);
+            if (isObstacle)
+                mapper.setMapPixel(imageIdx.x, imageIdx.z);
+        }
     }
 }
