@@ -15,8 +15,7 @@ public class NavigationMenu : MonoBehaviour
     private VRUI vrui = null;
     private HelpBar helpBar = null;
     private LineRenderer lineRenderer = null;
-    private Vector3 setStatePosition;
-    private Quaternion setStateRotation;
+    private Vector3 setStatePosition, setStateRotation;
     private enum MenuStatus : int {
         NOTHING,
         SET_START, 
@@ -44,7 +43,7 @@ public class NavigationMenu : MonoBehaviour
         lineRenderer.positionCount = 0;
         // set default values
         setStatePosition = Vector3.zero;
-        setStateRotation = Quaternion.identity;
+        setStateRotation = Vector3.zero;
     }
     void Update() {
         lineRenderer.positionCount = 0;
@@ -73,7 +72,7 @@ public class NavigationMenu : MonoBehaviour
             string prefixStr;
             if (isSettingRotation){
                 // if setting rotation
-                setStateRotation = GetRotation();
+                setStateRotation = GetRotationEuler();
                 prefixStr = "Press trigger to finish.";
             } else {
                 // if setting position
@@ -134,7 +133,6 @@ public class NavigationMenu : MonoBehaviour
                 break;
         }
     }
-
     private Vector3 GetPosition(){        
         Debug.DrawRay(ActiveController.transform.position, 
             ActiveController.transform.TransformDirection(Vector3.forward) * 100,
@@ -154,18 +152,18 @@ public class NavigationMenu : MonoBehaviour
         }
         return Vector3.zero;
     }
-    private Quaternion GetRotation(){
-        return ActiveController.transform.rotation;
+    private Vector3 GetRotationEuler(){
+        Vector3 rot =  ActiveController.transform.rotation.eulerAngles;
+        return wrapAngle(rot);
     }
-    private string GetHelpText(Vector3 pos, Quaternion rot){
-        Vector3 rotEuler = rot.eulerAngles;
+    private string GetHelpText(Vector3 pos, Vector3 rot){
         string res = 
             "Position x: " + Mathf.Round(pos.x).ToString() +
             ", y: " + Mathf.Round(pos.y).ToString() +
             ", z: " + Mathf.Round(pos.z).ToString() +
-            "Angle: x: " + Mathf.Round(rotEuler.x).ToString() +
-            ", y: " + Mathf.Round(rotEuler.y).ToString() +
-            ", z: " + Mathf.Round(rotEuler.z).ToString();
+            "Angle: x: " + Mathf.Round(rot.x).ToString() +
+            ", y: " + Mathf.Round(rot.y).ToString() +
+            ", z: " + Mathf.Round(rot.z).ToString();
         return res;
     }
     public void processTouchTrackpad(bool newState){
@@ -205,5 +203,27 @@ public class NavigationMenu : MonoBehaviour
                 isSettingRotation = true;
             }
         }
+    }
+    private Vector3 wrapAngle(Vector3 r){
+        Vector3 res = new Vector3(-180.0f, -180.0f, -180.0f);
+        res += r;
+        if (res.x > 0.0f){
+            res.x -= 180.0f;
+        } else {
+            res.x += 180.0f;
+        }
+
+        if (res.y > 0.0f){
+            res.y -= 180.0f;
+        } else {
+            res.y += 180.0f;
+        }
+
+        if (res.z > 0.0f){
+            res.z -= 180.0f;
+        } else {
+            res.z += 180.0f;
+        }
+        return res;
     }
 }

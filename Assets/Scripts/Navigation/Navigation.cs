@@ -7,6 +7,7 @@ public class Navigation : MonoBehaviour
     public SocketBridge socketBridge = null;
     private Transform startState;
     private Transform goalState;
+    private Vector3 startRotation, goalRotation; // Required to store angles in range [-180, 180)
 
     void Awake()
     {
@@ -25,18 +26,39 @@ public class Navigation : MonoBehaviour
     }
 
     
-    public void SetStartState(ref Vector3 v, ref Quaternion q){
+    public void SetStartState(ref Vector3 v, ref Vector3 r){
         startState.position = v;
-        startState.rotation = q;
+        startState.rotation = Quaternion.Euler(r);
+        startRotation = r;
     } // Set start State from Navigation Menu
-    public void SetGoalState(ref Vector3 v, ref Quaternion q){ 
+    public void SetGoalState(ref Vector3 v, ref Vector3 r){ 
         goalState.position = v;
-        goalState.rotation = q;
+        goalState.rotation = Quaternion.Euler(r);
+        goalRotation = r;
     } // Set goal State from Navigation Menu
 
     public void StartPlanning(){
-        socketBridge.SendStartPoint(startState.position, startState.rotation);
-        socketBridge.SendGoalPoint(goalState.position, goalState.rotation);
+        Quaternion q = Quaternion.Euler(startRotation);
+        socketBridge.SendStartPoint(startState.position, startRotation);
+        // Debug.Log("Start state: pos: " + startState.position + 
+        //     ", rot: " + startRotation + " (" + 
+        //     q.x + ", " + 
+        //     q.y + ", " + 
+        //     q.z + ", " + 
+        //     q.w + ", " + 
+        //     ")");
+
+        q = Quaternion.Euler(goalRotation);
+        socketBridge.SendGoalPoint(goalState.position, goalRotation);
+        // Debug.Log("Goal state: pos: " + goalState.position + 
+        //     ", rot: " + goalRotation + " (" + 
+        //     q.x + ", " + 
+        //     q.y + ", " + 
+        //     q.z + ", " + 
+        //     q.w + ", " + 
+        //     ")");
+
         socketBridge.RequestPlan();
     }
+
 }

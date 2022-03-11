@@ -101,19 +101,17 @@ public class SocketBridge : MonoBehaviour
         }  
     }
 
-    public bool SendStartPoint(Vector3 pos, Quaternion rot){
+    public bool SendStartPoint(Vector3 pos, Vector3 rot){
         byte[] cmdBytes = System.BitConverter.GetBytes(Convert.ToUInt16(UnityCommands.setStartPoint));
         byte[] posBytes = GetBytesVector3(ref pos);
-        Vector3 rotEuler = rot.eulerAngles;
-        byte[] rotBytes = GetBytesVector3(ref rotEuler);
+        byte[] rotBytes = GetBytesVector3(ref rot);
         byte[] msg = CombineBytes(CombineBytes(cmdBytes, posBytes), rotBytes);
         return sendBytes(ref msg);
     } // Send start state message
-    public bool SendGoalPoint(Vector3 pos, Quaternion rot){
+    public bool SendGoalPoint(Vector3 pos, Vector3 rot){
         byte[] cmdBytes = System.BitConverter.GetBytes(Convert.ToUInt16(UnityCommands.setGoalPoint));
         byte[] posBytes = GetBytesVector3(ref pos);
-        Vector3 rotEuler = rot.eulerAngles;
-        byte[] rotBytes = GetBytesVector3(ref rotEuler);
+        byte[] rotBytes = GetBytesVector3(ref rot);
         byte[] msg = CombineBytes(CombineBytes(cmdBytes, posBytes), rotBytes);
         return sendBytes(ref msg);        
     } // Send goal state message
