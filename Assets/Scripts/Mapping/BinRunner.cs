@@ -15,8 +15,15 @@ public class BinRunner : MonoBehaviour
     private float timeDestroyLeft = 0.0f;
     private int toGenerate =-1;
     public int objectLimit = 1000;
-    void Start()
-    {
+    private VoxelMap voxelMap = null;
+    private Mapper mapper = null;
+    private bool isObstacle = false;
+    private Vector3Int imageIdx = Vector3Int.zero;
+    void Awake(){
+        voxelMap =  transform.parent.GetComponent<VoxelMap>();
+        mapper =  transform.parent.GetComponent<Mapper>();
+    }
+    void Start() {
         gameObject.GetComponent<Collider>().enabled = true;
         spawnDelay = 0.01f*currentLevel;
         spawnTimer = spawnDelay;
@@ -63,7 +70,7 @@ public class BinRunner : MonoBehaviour
             if (currentLevel < maxLevel){
                 toGenerate = 8;
             } else {
-                setMapCell();
+                isObstacle = true;
                 Destroy(gameObject);
             }
             gameObject.GetComponent<Collider>().enabled = false;
@@ -86,19 +93,26 @@ public class BinRunner : MonoBehaviour
 
     private void setMapCell()
     {
+        mapper.setMapPixel(imageIdx.x, imageIdx.z);
+        // transform.parent.GetComponent<Mapper>().setMapPixel(imageIdx.x, imageIdx.z);
+        Destroy(gameObject);
+    }
+
+    void OnDestroy(){
+        
         Vector3 minCorner = transform.parent.GetComponent<Mapper>().getMinCorner();
         Vector3 globalPos = transform.parent.transform.TransformPoint(transform.position);
         Vector3 shiftPos = globalPos + transform.localScale / 2.0f;
         Vector3 imagePos = shiftPos - minCorner;
-
-        Vector3Int imageIdx = new Vector3Int(
+        
+        imageIdx = new Vector3Int(
             ((int)Mathf.Round(imagePos.x/transform.localScale.x)) - 1,
             ((int)Mathf.Round(imagePos.y/transform.localScale.y)) - 1,
             ((int)Mathf.Round(imagePos.z/transform.localScale.z)) - 1
         );
-
-        transform.parent.GetComponent<Mapper>().setMapPixel(imageIdx.x, imageIdx.z);
-        // transform.parent.GetComponent<Mapper>().setMapPixel(imageIdx.x, imageIdx.z);
-        Destroy(gameObject);
+        
+        if (isObstacle)
+            setMapCell();
+        voxelMap.setMapVoxel(ref imageIdx, isObstacle);
     }
 }

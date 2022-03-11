@@ -7,7 +7,7 @@ using UnityEngine.Sprites;
 public class Mapper : MonoBehaviour
 {
     [Header("Mapper settings")]
-    public Vector2Int chunksNumber = new Vector2Int(4, 4);
+    public Vector3Int chunksNumber = new Vector3Int(4, 1, 4);
     public Transform GridRunner = null;
     public int maxLevel = 4;
 
@@ -29,21 +29,22 @@ public class Mapper : MonoBehaviour
     private Transform startPointObj;
     private Transform goalPointObj;
     private Vector2Int imageSize;
+    private VoxelMap voxelMap;
     void Awake()
     {
         Boundary = transform.GetChild(0);
+        voxelMap = transform.GetComponent<VoxelMap>();
     }
 
     void Start(){
         Boundary.gameObject.SetActive(false);
     }
 
-    // Update is called once per frame
     void Update()
     {
         
     }
-    private void makeCorners(){
+    private void DefineCorners(){
         Boundary.gameObject.SetActive(true);
         minCorner = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         maxCorner = new Vector3(float.MinValue, float.MinValue, float.MinValue);
@@ -68,6 +69,8 @@ public class Mapper : MonoBehaviour
                 maxCorner.z = direction.z;
             }
         }
+        Debug.Log("Min Corner: " + minCorner);
+        Debug.Log("Max Corner: " + maxCorner);
     }
     private Vector3 getChunkSize(){
         if (Boundary == null){
@@ -75,7 +78,12 @@ public class Mapper : MonoBehaviour
             return Vector3.zero;
         }
         Vector3 range = maxCorner - minCorner;
-        Vector3 chunkSize = new Vector3(range.x / chunksNumber.x, range.y ,range.z / chunksNumber.y);       
+        Vector3 chunkSize = new Vector3(
+            range.x / chunksNumber.x, 
+            range.y / chunksNumber.y,
+            range.z / chunksNumber.z);
+
+        Debug.Log("Chunk Size: " + chunkSize);  
         return chunkSize;
     }
     private void GenerateChunks(){
@@ -84,18 +92,20 @@ public class Mapper : MonoBehaviour
             return;
         }
         for (int x = 0; x < chunksNumber.x; ++x){
-            for (int z = 0; z < chunksNumber.y; ++z){
-                Vector3 min = minCorner + Vector3.Scale(chunkSize, new Vector3(x, 0.0f, z));
-                Vector3 max = min + chunkSize;
-                Vector3 pos = (max + min) / 2.0f;
-                
-                Transform new_object = Instantiate(GridRunner, pos, Quaternion.identity, transform);
-                new_object.localScale = max - min;
-                new_object.GetComponent<BinRunner>().setMinCorner(min);
-                new_object.GetComponent<BinRunner>().setMaxCorner(max);
-                new_object.GetComponent<BinRunner>().setMaxLevel(maxLevel);
-                new_object.GetComponent<BinRunner>().setCurrentLevel(0);
-                new_object.GetComponent<Collider>().enabled = false;
+            for (int y = 0; y < chunksNumber.y; ++y){
+                for (int z = 0; z < chunksNumber.z; ++z){
+                    Vector3 min = minCorner + Vector3.Scale(chunkSize, new Vector3(x, y, z));
+                    Vector3 max = min + chunkSize;
+                    Vector3 pos = (max + min) / 2.0f;
+                    
+                    Transform new_object = Instantiate(GridRunner, pos, Quaternion.identity, transform);
+                    new_object.localScale = max - min;
+                    new_object.GetComponent<BinRunner>().setMinCorner(min);
+                    new_object.GetComponent<BinRunner>().setMaxCorner(max);
+                    new_object.GetComponent<BinRunner>().setMaxLevel(maxLevel);
+                    new_object.GetComponent<BinRunner>().setCurrentLevel(0);
+                    new_object.GetComponent<Collider>().enabled = false;
+                }
             }
         }
     }
@@ -107,22 +117,24 @@ public class Mapper : MonoBehaviour
     }
     
     public void MakeMap(){
-        Debug.Log("start mapping");
         cleanMap();
-
-        makeCorners();
-        Debug.Log("Min Corner: " + minCorner.x + ", " + minCorner.z);
-        Debug.Log("Max Corner: " + maxCorner.x + ", " + maxCorner.z);
-
+        DefineCorners();
+        
         chunkSize = getChunkSize();
-        Debug.Log("Chunk Size: " + chunkSize);
+        if (chunkSize == Vector3.zero){
+            Debug.Log("Invalid chunkSize." + chunkSize);
+            return;
+        }
 
-        imageSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
+        Vector3Int voxelMapSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
+        voxelMap.setMapSize(ref voxelMapSize);
+
+        Vector2Int chunksNumber2D = new Vector2Int(chunksNumber.x, chunksNumber.z);
+        imageSize = chunksNumber2D * ((int)Mathf.Pow(2, maxLevel));
+        Debug.Log("Image size: " + imageSize);
         
         Vector3 range = maxCorner - minCorner;
         gridSize = new Vector3(range.x / imageSize.x, range.y, range.z / imageSize.y);
-
-        Debug.Log("Image size: " + imageSize);
 
         mapImage = new Texture2D(imageSize.x, imageSize.y, TextureFormat.RGB24, false);
         GenerateChunks();
@@ -132,6 +144,9 @@ public class Mapper : MonoBehaviour
         return minCorner;
     }
 
+    public void setVoxel(){
+
+    }
     public void setMapPixel(int x, int y){
         Color pixColor = mapImage.GetPixel(x, y);
         pixColor.a = 1.0f;
@@ -152,7 +167,8 @@ public class Mapper : MonoBehaviour
     }
 
     public void SaveMap(){
-        SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VR_PP/launch" + "/map.png");
+        SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VRPP_ROS/launch" + "/map.png");
+        voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
     }
     private static void SaveTextureAsPNG(Texture2D _texture, string _fullPath)
     {
