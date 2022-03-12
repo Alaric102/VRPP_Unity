@@ -7,6 +7,7 @@ public class VoxelMap : MonoBehaviour
 {
     private Vector3Int mapSize_;
     private Vector3 gridSize_;
+    private Vector3 minCorner_;
     private int voxelCapacity_;
     private Dictionary<Vector3Int, bool> voxelMap = new Dictionary<Vector3Int, bool>(0);
     void Awake() {
@@ -27,7 +28,9 @@ public class VoxelMap : MonoBehaviour
     public void SetGridSize(ref Vector3 v){
         gridSize_ = v;
     }
-
+    public void SetMinCorner(ref Vector3 v){
+        minCorner_ = v;
+    }
     public void setMapVoxel(ref Vector3Int v, bool isObstacle){
         voxelMap[v] = isObstacle;
     }
@@ -36,6 +39,7 @@ public class VoxelMap : MonoBehaviour
         StreamWriter file = new StreamWriter(_fullPath, append: false);
         file.Write(FormatVector3Int(mapSize_) + "\n");
         file.Write(FormatVector3(gridSize_) + "\n");
+        file.Write(FormatVector3(minCorner_) + "\n");
         foreach( KeyValuePair<Vector3Int, bool> item in voxelMap){
             file.Write(FormatVector3Int(item.Key) + " " + item.Value.ToString() + "\n");
         }

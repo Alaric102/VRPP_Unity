@@ -133,6 +133,7 @@ public class Mapper : MonoBehaviour
         
         Vector3Int voxelMapSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
         voxelMap.SetMapSize(ref voxelMapSize);
+        voxelMap.SetMinCorner(ref minCorner);
         Vector3 range = maxCorner - minCorner;
         Vector3 gridSize = new Vector3(
             range.x / voxelMapSize.x, 
