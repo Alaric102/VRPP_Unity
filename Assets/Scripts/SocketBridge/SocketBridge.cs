@@ -10,6 +10,9 @@ using System.Text;
 
 public class SocketBridge : MonoBehaviour
 {
+    [Header("External Modules")]
+    public Navigation navigation = null;
+    public Mapper mapper = null;
     private static Thread tcpServer;
     private TcpListener tcpListener;
     private static Socket clientSocket = null;
@@ -18,7 +21,7 @@ public class SocketBridge : MonoBehaviour
         public Socket workSocket = null;
         public const int BufferSize = 1024;
         public byte[] buffer = new byte[BufferSize];
-        public StringBuilder sb = new StringBuilder();
+        public Navigation navigation = null;
     }
     enum UnityCommands {
         setStartPoint = 1,
@@ -57,7 +60,7 @@ public class SocketBridge : MonoBehaviour
                 Debug.Log("Server is finished");
             }
     }
-    private static void AcceptTcpClientCallback(IAsyncResult ar)
+    private void AcceptTcpClientCallback(IAsyncResult ar)
     {
         clientConnected.Set();
 
@@ -66,7 +69,8 @@ public class SocketBridge : MonoBehaviour
         
         // Create the state object.  
         StateObject state = new StateObject();  
-        state.workSocket = clientSocket; 
+        state.workSocket = clientSocket;
+        state.navigation = navigation;
         clientSocket.BeginReceive( state.buffer, 0, StateObject.BufferSize, 0,  
             new AsyncCallback(ReadCallback), state);  
 
@@ -74,31 +78,51 @@ public class SocketBridge : MonoBehaviour
         tcpServer.Abort();
     } 
     public static void ReadCallback(IAsyncResult ar)
-    {
-        String content = String.Empty;  
-  
+    {  
         // Retrieve the state object and the handler socket from the asynchronous state object.  
         StateObject state = (StateObject) ar.AsyncState;  
         Socket handler = state.workSocket;  
   
         // Read data from the client socket.
         int bytesRead = handler.EndReceive(ar);  
-  
-        if (bytesRead > 0) {  
-            // There  might be more data, so store the data received so far.  
-            state.sb.Append(Encoding.ASCII.GetString(  
-                state.buffer, 0, bytesRead));  
-  
-            // Check for end-of-file tag. If it is not there, read more data.  
-            content = state.sb.ToString();  
+        // Debug.Log("bytesRead: " + bytesRead);
+        
+        if (bytesRead > 1) {
+            string s = "";
+            for (int i = 0; i < bytesRead; ++i){
+                s += state.buffer[i].ToString() + " ";
+            }
+            Debug.Log(s);
+            var bytes = state.buffer;
+            
+            int cmd = ParseCommand(ref bytes, bytesRead);
+            switch (cmd){
+            case (1):
+                int offset = 3;
+                List<Vector3> path = new List<Vector3>();
+                while (offset < bytesRead){
+                    float x = BitConverter.ToSingle(bytes, offset);
+                    offset += 4;
 
-            // Debug.Log("Received: " + content);
+                    float y = BitConverter.ToSingle(bytes, offset);
+                    offset += 4;
 
-            state.sb.Clear();
-            Array.Clear(state.buffer, 0, state.buffer.Length);
-            handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,  
-                new AsyncCallback(ReadCallback), state);
+                    float z = BitConverter.ToSingle(bytes, offset);
+                    offset += 4;
+
+                    path.Add(new Vector3(x, y, z));
+                    Debug.Log(new Vector3(x, y, z));
+                }
+                Debug.Log(state.navigation == null);
+                state.navigation.SetGlobalPlan(path);
+                break;
+            default:
+                break;
+            }
         }  
+        Array.Clear(state.buffer, 0, state.buffer.Length);
+        handler.BeginReceive(state.buffer, 0, StateObject.BufferSize, 0,  
+            new AsyncCallback(ReadCallback), state);
     }
 
     public bool SendStartPoint(Vector3 pos, Vector3 rot){
@@ -143,5 +167,15 @@ public class SocketBridge : MonoBehaviour
         byte[] dataLen = System.BitConverter.GetBytes(Convert.ToUInt16(data.Length));
         byte[] byteData = CombineBytes(CombineBytes(prefix, dataLen), data);
         return (byteData.Length == clientSocket.Send(byteData, 0, byteData.Length, SocketFlags.None));
+    }
+
+    private static int ParseCommand(ref byte[] bytes, int bytesRead){
+        if (!(bytes[0] == 0xFF && bytes[1] == 0xFF)){
+            Debug.Log("no msg Beggin");
+            return -1;
+        }
+
+        int cmd = bytes[2];
+        return cmd;
     }
 }
