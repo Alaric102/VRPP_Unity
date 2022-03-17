@@ -13,10 +13,10 @@ public class SocketBridge : MonoBehaviour
     [Header("External Modules")]
     public Navigation navigation = null;
     public Mapper mapper = null;
-    private static Thread tcpServer;
+    private Thread tcpListenerThread;
     private TcpListener tcpListener;
-    private static Socket clientSocket = null;
-    private static ManualResetEvent clientConnected = new ManualResetEvent(false);
+    private Socket clientSocket = null;
+    private ManualResetEvent clientConnected = null;
     public class StateObject{
         public Socket workSocket = null;
         public const int BufferSize = 1024;
@@ -30,42 +30,61 @@ public class SocketBridge : MonoBehaviour
     }
     void Start()
     {
-        tcpServer = new Thread( new ThreadStart(ListenForIncommingRequests) );
-        tcpServer.IsBackground = true;
-        tcpServer.Start();
-        
+        tcpListener = new TcpListener(IPAddress.Parse("127.0.0.1"), 12345);
+        clientConnected = new ManualResetEvent(false);
+
+        tcpListenerThread = new Thread( new ThreadStart(ListenForIncommingRequests) );
+        tcpListenerThread.IsBackground = true;
+        tcpListenerThread.Start();
     }
 
     // Update is called once per frame
     void Update()
     {
+
     }
-
-    void OnDestroy(){
-        tcpListener.Stop();
-        clientSocket.Close();
+    private bool IsConnected(Socket socket) {
+        try {
+            return !(socket.Poll(1, SelectMode.SelectRead) && socket.Available == 0);
+        } catch (SocketException) { return false; }
     }
-
-    private void ListenForIncommingRequests (){
-			tcpListener = new TcpListener(IPAddress.Parse("127.0.0.1"), 12345);
-			tcpListener.Start();
-
-            while (true){
-                clientConnected.Reset();
-                if ((clientSocket == null) || (!clientSocket.Connected)){
-                    Debug.Log("Server is listening");
-                    tcpListener.BeginAcceptSocket(new AsyncCallback(AcceptTcpClientCallback), tcpListener);
-                    clientConnected.WaitOne();
-                }
-                Debug.Log("Server is finished");
+    private void ListenForIncommingRequests(){
+        // clientConnected.Reset();
+        // Debug.Log("Waiting for connection...");
+        
+        // tcpListener.Start();
+        // tcpListener.BeginAcceptSocket(new AsyncCallback(AcceptTcpClientCallback), tcpListener);
+        // clientConnected.WaitOne();
+        // Debug.Log("...");
+        
+        tcpListener.Start();
+        Debug.Log("Server is started.");
+        while (true){
+            if (clientSocket == null){
+                Debug.Log("Waiting for connection...");
+                Socket newSocketClient = tcpListener.AcceptSocketAsync().Result;
+                clientSocket = newSocketClient;
+                Debug.Log("Connected.");
+            } else if (!IsConnected(clientSocket)){
+                Socket newSocketClient = tcpListener.AcceptSocketAsync().Result;
+                clientSocket = newSocketClient;
+                Debug.Log("Socket is connected.");
             }
+            // Create the state object.  
+            StateObject state = new StateObject();  
+            state.workSocket = clientSocket;
+            state.navigation = navigation;
+            clientSocket.BeginReceive( state.buffer, 0, StateObject.BufferSize, 0,  
+                new AsyncCallback(ReadCallback), state);  
+        }
     }
     private void AcceptTcpClientCallback(IAsyncResult ar)
     {
-        clientConnected.Set();
 
         TcpListener listener = (TcpListener) ar.AsyncState;
         clientSocket = listener.EndAcceptSocket(ar);
+        Debug.Log("Client connected.");
+        clientConnected.Set();
         
         // Create the state object.  
         StateObject state = new StateObject();  
@@ -74,8 +93,7 @@ public class SocketBridge : MonoBehaviour
         clientSocket.BeginReceive( state.buffer, 0, StateObject.BufferSize, 0,  
             new AsyncCallback(ReadCallback), state);  
 
-        Debug.Log("Client connected.");
-        tcpServer.Abort();
+        // tcpServer.Abort();
     } 
     public static void ReadCallback(IAsyncResult ar)
     {  
@@ -113,7 +131,6 @@ public class SocketBridge : MonoBehaviour
                     path.Add(new Vector3(x, y, z));
                     Debug.Log(new Vector3(x, y, z));
                 }
-                Debug.Log(state.navigation == null);
                 state.navigation.SetGlobalPlan(path);
                 break;
             default:
