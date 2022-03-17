@@ -8,23 +8,30 @@ public class Navigation : MonoBehaviour
     private Transform startState;
     private Transform goalState;
     private Vector3 startRotation, goalRotation; // Required to store angles in range [-180, 180)
-
+    private LineRenderer globalPlanLine = null;
+    private List<Vector3> globalPath = new List<Vector3>();
     void Awake()
     {
         startState = transform.GetChild(0);
         goalState = transform.GetChild(1);
+
+        globalPlanLine = transform.GetComponent<LineRenderer>();
     }
     void Start()
     {
-        
+        globalPlanLine.positionCount = 0;
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+        globalPlanLine.positionCount = globalPath.Count + 1;
+        globalPlanLine.SetPosition(0, startState.position);
+        for (int i = 0; i < globalPath.Count; ++i){
+            globalPlanLine.SetPosition(i+1, globalPath[i]);
+            // Debug.Log(path[i]);
+        }
     }
-
     
     public void SetStartState(ref Vector3 v, ref Vector3 r){
         startState.position = v;
@@ -61,4 +68,13 @@ public class Navigation : MonoBehaviour
         socketBridge.RequestPlan();
     }
 
+    public void SetGlobalPlan(List<Vector3> path){
+        globalPath = path;
+        // Debug.Log(path.Count);
+        // // globalPlanLine.positionCount = path.Count + 1;
+        // // Debug.Log(globalPlanLine.positionCount);
+        // // 
+        // // Debug.Log(globalPlanLine.positionCount);
+        
+    }
 }
