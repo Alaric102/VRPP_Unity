@@ -95,7 +95,8 @@ public class BinRunner : MonoBehaviour
         if (currentLevel == maxLevel){
             Vector3 minCorner = transform.parent.GetComponent<Mapper>().getMinCorner();
             Vector3 globalPos = transform.parent.transform.TransformPoint(transform.position);
-            Vector3 shiftPos = globalPos + transform.localScale / 2.0f;
+            Vector3 scale = transform.localScale / 2.0f;
+            Vector3 shiftPos = globalPos + scale;
             Vector3 imagePos = shiftPos - minCorner;
             
             imageIdx = new Vector3Int(
@@ -103,7 +104,50 @@ public class BinRunner : MonoBehaviour
                 ((int)Mathf.Round(imagePos.y/transform.localScale.y)) - 1,
                 ((int)Mathf.Round(imagePos.z/transform.localScale.z)) - 1
             );
-            
+
+            string s = "minCorner: " + minCorner.x.ToString() + ", "
+                + minCorner.y.ToString() + ", "
+                + minCorner.z.ToString() + "\n";
+
+            s += "globalPos: " + globalPos.x.ToString() + ", "
+                + globalPos.y.ToString() + ", "
+                + globalPos.z.ToString() + "\n";
+
+            s += "scale: " + scale.x.ToString() + ", "
+                + scale.y.ToString() + ", "
+                + scale.z.ToString() + "\n";
+
+            s += "shiftPos: " + shiftPos.x.ToString() + ", "
+                + shiftPos.y.ToString() + ", "
+                + shiftPos.z.ToString() + "\n";
+
+            s += "imagePos: " + imagePos.x.ToString() + ", "
+                + imagePos.y.ToString() + ", "
+                + imagePos.z.ToString() + "\n";
+
+            s += "imageIdx: " + imageIdx.x.ToString() + ", "
+                + imageIdx.y.ToString() + ", "
+                + imageIdx.z.ToString() + "\n";
+
+            // Debug.Log(s);
+                
+            /*
+            Debug.Log("globalPos" + globalPos.x.ToString() + ", "
+                + globalPos.y.ToString() + ", "
+                + globalPos.z.ToString());
+                
+            Debug.Log("shiftPos" + shiftPos.x.ToString() + ", "
+                + shiftPos.y.ToString() + ", "
+                + shiftPos.z.ToString());
+                
+            Debug.Log("imagePos" + imagePos.x.ToString() + ", "
+                + imagePos.y.ToString() + ", "
+                + imagePos.z.ToString());
+                
+            Debug.Log("imageIdx" + imageIdx.x.ToString() + ", "
+                + imageIdx.y.ToString() + ", "
+                + imageIdx.z.ToString());
+            */
             voxelMap.setMapVoxel(ref imageIdx, isObstacle);
             if (isObstacle)
                 mapper.setMapPixel(imageIdx.x, imageIdx.z);

@@ -30,6 +30,7 @@ public class Mapper : MonoBehaviour
     private Transform goalPointObj;
     private Vector2Int imageSize;
     private VoxelMap voxelMap;
+    private float mappingDuration = 0.0f;
     void Awake()
     {
         Boundary = transform.GetChild(0);
@@ -42,7 +43,12 @@ public class Mapper : MonoBehaviour
 
     void Update()
     {
-        
+        if (transform.childCount > 1){
+            mappingDuration += Time.deltaTime;
+        } else if (mappingDuration > 0.0f) {
+            Debug.Log("MappingDuration: " + mappingDuration.ToString());
+            mappingDuration = 0.0f;
+        }
     }
     private void DefineCorners(){
         Boundary.gameObject.SetActive(true);
@@ -142,6 +148,7 @@ public class Mapper : MonoBehaviour
         voxelMap.SetGridSize(ref gridSize);
 
         mapImage = new Texture2D(imageSize.x, imageSize.y, TextureFormat.RGB24, false);
+        mappingDuration = 0.0f;
         GenerateChunks();
     }
 

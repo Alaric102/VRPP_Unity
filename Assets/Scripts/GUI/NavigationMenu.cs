@@ -39,6 +39,8 @@ public class NavigationMenu : MonoBehaviour
     }
 
     void Start(){
+        // Hide Robots
+        navigation.SetActiveStates(false);
         // clean lineRenderer
         lineRenderer.positionCount = 0;
         // set default values
@@ -47,6 +49,9 @@ public class NavigationMenu : MonoBehaviour
     }
     void Update() {
         lineRenderer.positionCount = 0;
+        // Show robots if menu is active
+        navigation.SetActiveStates(menuIsActive);
+
         if (menuIsActive && !(isSettingStartPosition || isSettingGoalPosition)){
             // show menu if menu is active and not setting start/goal states
             setStartStatePanel.SetActive(true);
@@ -173,9 +178,8 @@ public class NavigationMenu : MonoBehaviour
         trackpadVector = axis;
     }
     public void processTrackpadPressRelease(){
-        if (!menuIsActive){
+        if (!menuIsActive)
             return;
-        }
         switch (menuStatus) {
             case ((int)MenuStatus.SET_START):
                 isSettingStartPosition = true;
@@ -187,6 +191,8 @@ public class NavigationMenu : MonoBehaviour
                 navigation.StartPlanning();
                 break;
             case ((int)MenuStatus.BACK):
+                // Hide Robots
+                navigation.SetActiveStates(false);
                 vrui.SetActiveMainMenu();
                 break;
             default:
