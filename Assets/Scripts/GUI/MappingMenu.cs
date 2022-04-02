@@ -33,8 +33,7 @@ public class MappingMenu : MonoBehaviour
     }
 
     // Update is called once per frame
-    void Update()
-    {
+    void Update() {
         if (menuIsActive){
             makeMapPanel.SetActive(true);
             saveMapPanel.SetActive(true);
@@ -103,7 +102,7 @@ public class MappingMenu : MonoBehaviour
                 mapper.MakeMap();
                 break;
             case ((int)MenuStatus.SAVE_MAP):
-                mapper.SaveMap();
+                // mapper.SaveMap();
                 break;
             case ((int)MenuStatus.BACK):
                 vrui.SetActiveMainMenu();

@@ -2,26 +2,20 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class BinRunner : MonoBehaviour
-{
-    public Transform GridRunner;
-    private Vector3 minCorner = new Vector3(-5.0f, -5.0f, -5.0f);
-    private Vector3 maxCorner = new Vector3(5.0f, 5.0f, 5.0f);
-    private int maxLevel;
-    private int currentLevel;
+public class BinRunner : MonoBehaviour {
+    public int objectLimit = 1000;
+    private Transform gridRunner;
+    private Vector3 minCorner = Vector3.zero, maxCorner = Vector3.zero;
+    private int currentLevel, maxLevel;
+    private int toGenerate = -1;
+    private bool isObstacle = false;
+    private VoxelMap voxelMap = null;
     private float spawnDelay = 0.005f;
     private float spawnTimer = 1.0f;
     private float lifeTimer = 0.05f;
-    private float timeDestroyLeft = 0.0f;
-    private int toGenerate =-1;
-    public int objectLimit = 1000;
-    private VoxelMap voxelMap = null;
-    private Mapper mapper = null;
-    private bool isObstacle = false;
-    private Vector3Int imageIdx = Vector3Int.zero;
     void Awake(){
+        gridRunner = transform.parent.GetChild(1);
         voxelMap =  transform.parent.GetComponent<VoxelMap>();
-        mapper =  transform.parent.GetComponent<Mapper>();
     }
     void Start() {
         gameObject.GetComponent<Collider>().enabled = true;
@@ -30,12 +24,12 @@ public class BinRunner : MonoBehaviour
         objectLimit = ((int)(500*(currentLevel + 1) / (maxLevel + 1)));
     }
 
-    void Update()
-    {
+    void Update() {
         if (toGenerate > 0){
             if (transform.parent.childCount > objectLimit){
+                objectLimit += toGenerate;
                 return;
-            } else if (spawnTimer < 0.0f){
+            } else if (spawnTimer  < 0.0f) {
                 int x = (((toGenerate - 1) >> 0) & 1)*2-1;
                 int y = (((toGenerate - 1) >> 1) & 1)*2-1;
                 int z = (((toGenerate - 1) >> 2) & 1)*2-1;
@@ -44,32 +38,29 @@ public class BinRunner : MonoBehaviour
                 Vector3 pose = transform.position - Vector3.Scale(scale / 2.0f, new Vector3(x, y, z));
                 Vector3 min = minCorner + Vector3.Scale(scale, new Vector3(x+1, y+1, z+1));
                 Vector3 max = min + scale;
-                Transform new_object = Instantiate(GridRunner, pose, Quaternion.identity, transform.parent);
-                new_object.localScale = scale;
-                new_object.GetComponent<BinRunner>().setMinCorner(min);
-                new_object.GetComponent<BinRunner>().setMaxCorner(max);
-                new_object.GetComponent<BinRunner>().setMaxLevel(maxLevel);
-                new_object.GetComponent<BinRunner>().setCurrentLevel(currentLevel + 1);
-                new_object.GetComponent<Collider>().enabled = false;
+                Transform newObj = Instantiate(gridRunner, pose, Quaternion.identity, transform.parent);
+                newObj.GetComponent<BinRunner>().SetCorners(min, max);
+                newObj.GetComponent<BinRunner>().SetRecursionLevels(currentLevel + 1, maxLevel);
+                newObj.GetComponent<Collider>().enabled = false;
+                newObj.gameObject.SetActive(true);
+
                 toGenerate--;
-                spawnTimer = spawnDelay;
+                spawnTimer  = spawnDelay;
             }
-            spawnTimer -= Time.deltaTime;
-        } else if (toGenerate == 0){
+            spawnTimer  -= Time.deltaTime;
+        } else if (toGenerate == 0){ // Case after generating 8 chunks
             Destroy(gameObject);
-        } else {
+        } else { // No collision case
             lifeTimer -= Time.deltaTime;
-            if (lifeTimer < 0.0f){
+            if (lifeTimer < 0.0f) 
                 Destroy(gameObject);
-            }
         }
     }
-    void OnTriggerEnter(Collider other)
-    {
+    void OnTriggerEnter(Collider other) {
         if (other.gameObject.tag != "CellBinary"){
-            if (currentLevel < maxLevel){
+            if (currentLevel < maxLevel){   // proceed chunk generation
                 toGenerate = 8;
-            } else {
+            } else {                        // define is obstacle
                 isObstacle = true;
                 Destroy(gameObject);
             }
@@ -78,79 +69,32 @@ public class BinRunner : MonoBehaviour
             return;
         }
     }
-    public void setMinCorner(Vector3 v){
-        minCorner = v;
+    public void SetCorners(Vector3 min, Vector3 max){
+        minCorner = min;
+        maxCorner = max;
+        transform.localScale = max - min;
     }
-    public void setMaxCorner(Vector3 v){
-        maxCorner = v;
-    }
-    public void setMaxLevel(int v){
-        maxLevel = v;
-    }
-    public void setCurrentLevel(int v){
-        currentLevel = v;
+    public void SetRecursionLevels(int lvl, int maxLvl){
+        currentLevel = lvl;
+        maxLevel = maxLvl;
+        // spawnDelay = 0.01f*currentLevel;
+        // objectLimit = 1000;
     }
 
-    void OnDestroy(){
+    void OnDestroy(){ // On destroy we want to notify voxel map about collision if we reached max level
         if (currentLevel == maxLevel){
-            Vector3 minCorner = transform.parent.GetComponent<Mapper>().getMinCorner();
-            Vector3 globalPos = transform.parent.transform.TransformPoint(transform.position);
-            Vector3 scale = transform.localScale / 2.0f;
-            Vector3 shiftPos = globalPos + scale;
-            Vector3 imagePos = shiftPos - minCorner;
+            Vector3 globalMinCorner = transform.parent.GetComponent<Mapper>().GetMinCorner();
+            Vector3 globalPose = transform.parent.TransformPoint(transform.position);
+            Vector3 unsignedGlobalPose = globalPose + transform.localScale / 2.0f - globalMinCorner;
             
-            imageIdx = new Vector3Int(
-                ((int)Mathf.Round(imagePos.x/transform.localScale.x)) - 1,
-                ((int)Mathf.Round(imagePos.y/transform.localScale.y)) - 1,
-                ((int)Mathf.Round(imagePos.z/transform.localScale.z)) - 1
+            Vector3Int voxelCellPose = new Vector3Int(
+                ((int)Mathf.Round(unsignedGlobalPose.x/transform.localScale.x)) - 1,
+                ((int)Mathf.Round(unsignedGlobalPose.y/transform.localScale.y)) - 1,
+                ((int)Mathf.Round(unsignedGlobalPose.z/transform.localScale.z)) - 1
             );
 
-            string s = "minCorner: " + minCorner.x.ToString() + ", "
-                + minCorner.y.ToString() + ", "
-                + minCorner.z.ToString() + "\n";
-
-            s += "globalPos: " + globalPos.x.ToString() + ", "
-                + globalPos.y.ToString() + ", "
-                + globalPos.z.ToString() + "\n";
-
-            s += "scale: " + scale.x.ToString() + ", "
-                + scale.y.ToString() + ", "
-                + scale.z.ToString() + "\n";
-
-            s += "shiftPos: " + shiftPos.x.ToString() + ", "
-                + shiftPos.y.ToString() + ", "
-                + shiftPos.z.ToString() + "\n";
-
-            s += "imagePos: " + imagePos.x.ToString() + ", "
-                + imagePos.y.ToString() + ", "
-                + imagePos.z.ToString() + "\n";
-
-            s += "imageIdx: " + imageIdx.x.ToString() + ", "
-                + imageIdx.y.ToString() + ", "
-                + imageIdx.z.ToString() + "\n";
-
-            // Debug.Log(s);
-                
-            /*
-            Debug.Log("globalPos" + globalPos.x.ToString() + ", "
-                + globalPos.y.ToString() + ", "
-                + globalPos.z.ToString());
-                
-            Debug.Log("shiftPos" + shiftPos.x.ToString() + ", "
-                + shiftPos.y.ToString() + ", "
-                + shiftPos.z.ToString());
-                
-            Debug.Log("imagePos" + imagePos.x.ToString() + ", "
-                + imagePos.y.ToString() + ", "
-                + imagePos.z.ToString());
-                
-            Debug.Log("imageIdx" + imageIdx.x.ToString() + ", "
-                + imageIdx.y.ToString() + ", "
-                + imageIdx.z.ToString());
-            */
-            voxelMap.setMapVoxel(ref imageIdx, isObstacle);
             if (isObstacle)
-                mapper.setMapPixel(imageIdx.x, imageIdx.z);
+                voxelMap.SetObstacleCell(voxelCellPose, globalPose);
         }
     }
 }

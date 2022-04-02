@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,79 +9,76 @@ public class Mapper : MonoBehaviour
 {
     [Header("Mapper settings")]
     public Vector3Int chunksNumber = new Vector3Int(4, 1, 4);
-    public Transform GridRunner = null;
     public int maxLevel = 4;
 
-    [Header("Output settings")]
-    public GameObject panel = null;
+    // [Header("Output settings")]
+    // public GameObject panel = null;
     
-    [Header("Socket interface")]
-    public SocketBridge socketBridge;
+    // [Header("Socket interface")]
+    // public SocketBridge socketBridge;
 
     // Private declarations
-    private Vector3 gridSize = Vector3.zero;
-    private Texture2D mapImage = null;
-    private Transform Boundary = null;
-    private Vector3 minCorner = Vector3.zero;
-    private Vector3 maxCorner = Vector3.zero;
-    private Vector3 chunkSize = Vector3.zero;
-    private Vector2Int startPoint = Vector2Int.zero;
-    private Vector2Int goalPoint = Vector2Int.zero;
-    private Transform startPointObj;
-    private Transform goalPointObj;
-    private Vector2Int imageSize;
+    private Transform boundary = null, gridRunner = null;
+    private Tuple<Vector3, Vector3> corners = new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero);
     private VoxelMap voxelMap;
     private float mappingDuration = 0.0f;
-    void Awake()
-    {
-        Boundary = transform.GetChild(0);
+    void Awake() {
+        boundary = transform.GetChild(0);
+        gridRunner = transform.GetChild(1);
+
         voxelMap = transform.GetComponent<VoxelMap>();
+        
+        boundary.gameObject.SetActive(false);
+        gridRunner.gameObject.SetActive(false);
     }
-
     void Start(){
-        Boundary.gameObject.SetActive(false);
+        MakeMap();
     }
-
-    void Update()
-    {
-        if (transform.childCount > 1){
+    void Update() {
+        if (transform.childCount > 3){
             mappingDuration += Time.deltaTime;
         } else if (mappingDuration > 0.0f) {
             Debug.Log("MappingDuration: " + mappingDuration.ToString());
             mappingDuration = 0.0f;
         }
     }
-    private void DefineCorners(){
-        Boundary.gameObject.SetActive(true);
-        minCorner = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
-        maxCorner = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-        Mesh mesh = Boundary.GetComponent<MeshFilter>().sharedMesh;
-        Vector3[] vertices = mesh.vertices;
-        for (var i = 0; i < vertices.Length; i++)
-        {
-            Vector3 direction = Boundary.TransformPoint(vertices[i]);
-            if(direction.x < minCorner.x){
-                minCorner.x = direction.x;
-            } else if (direction.x > maxCorner.x){
-                maxCorner.x = direction.x;
-            }
-            if(direction.y < minCorner.y){
-                minCorner.y = direction.y;
-            } else if (direction.y > maxCorner.y){
-                maxCorner.y = direction.y;
-            }
-            if(direction.z < minCorner.z){
-                minCorner.z = direction.z;
-            } else if (direction.z > maxCorner.z){
-                maxCorner.z = direction.z;
-            }
-        }
-        Debug.Log("Min Corner: " + minCorner);
-        Debug.Log("Max Corner: " + maxCorner);
+    private void CleanMap(){ // Destroy all child pbjects except boundary
+        for (int i = 3; i < transform.childCount; ++i)
+            Destroy(transform.GetChild(i).gameObject);
     }
-    private Vector3 getChunkSize(){
-        if (Boundary == null){
-            Debug.Log("Empty Boundary Item!");
+    private Tuple<Vector3, Vector3> DefineMinMaxCorners(){ // define min and max corner vectors from boundary
+        if (boundary == null){
+            Debug.Log("Empty boundary Item!");
+            return new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero);
+        }
+        boundary.gameObject.SetActive(true);
+        Vector3 minCorner = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        Vector3 maxCorner = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+        Mesh mesh = boundary.GetComponent<MeshFilter>().sharedMesh;
+        Vector3[] vertices = mesh.vertices;
+        for (var i = 0; i < vertices.Length; i++) {
+            Vector3 direction = boundary.TransformPoint(vertices[i]);
+            if(direction.x < minCorner.x)
+                minCorner.x = direction.x;
+            else if (direction.x > maxCorner.x)
+                maxCorner.x = direction.x;
+
+            if(direction.y < minCorner.y)
+                minCorner.y = direction.y;
+            else if (direction.y > maxCorner.y)
+                maxCorner.y = direction.y;
+
+            if(direction.z < minCorner.z)
+                minCorner.z = direction.z;
+            else if (direction.z > maxCorner.z)
+                maxCorner.z = direction.z;
+        }
+        boundary.gameObject.SetActive(false);
+        return new Tuple<Vector3, Vector3>(minCorner, maxCorner);
+    }
+    private Vector3 GetChunkSize(Vector3 minCorner, Vector3 maxCorner){ // define size of each chunk
+        if (boundary == null){
+            Debug.Log("Empty boundary Item!");
             return Vector3.zero;
         }
         Vector3 range = maxCorner - minCorner;
@@ -88,136 +86,120 @@ public class Mapper : MonoBehaviour
             range.x / chunksNumber.x, 
             range.y / chunksNumber.y,
             range.z / chunksNumber.z);
-
-        Debug.Log("Chunk Size: " + chunkSize);  
         return chunkSize;
     }
-    private void GenerateChunks(){
-        if (GridRunner == null){
+    private bool GenerateChunks(Vector3 minCorner, Vector3 maxCorner, Vector3 chunkSize){ // Generates first chunks of gridRunner objects
+        if (gridRunner == null){
             Debug.Log("Empty Chunk Item!");
-            return;
+            return false;
         }
-        for (int x = 0; x < chunksNumber.x; ++x){
-            for (int y = 0; y < chunksNumber.y; ++y){
+        for (int x = 0; x < chunksNumber.x; ++x)
+            for (int y = 0; y < chunksNumber.y; ++y)
                 for (int z = 0; z < chunksNumber.z; ++z){
                     Vector3 min = minCorner + Vector3.Scale(chunkSize, new Vector3(x, y, z));
                     Vector3 max = min + chunkSize;
-                    Vector3 pos = (max + min) / 2.0f;
                     
-                    Transform new_object = Instantiate(GridRunner, pos, Quaternion.identity, transform);
-                    new_object.localScale = max - min;
-                    new_object.GetComponent<BinRunner>().setMinCorner(min);
-                    new_object.GetComponent<BinRunner>().setMaxCorner(max);
-                    new_object.GetComponent<BinRunner>().setMaxLevel(maxLevel);
-                    new_object.GetComponent<BinRunner>().setCurrentLevel(0);
-                    new_object.GetComponent<Collider>().enabled = false;
+                    Transform newObj = Instantiate(gridRunner, (max + min) / 2.0f, Quaternion.identity, transform);
+                    newObj.GetComponent<BinRunner>().SetCorners(min, max);
+                    newObj.GetComponent<BinRunner>().SetRecursionLevels(0, maxLevel);
+                    newObj.GetComponent<Collider>().enabled = false;
+                    newObj.gameObject.SetActive(true);
                 }
-            }
-        }
+        return true;
     }
+    public bool MakeMap(){
+        CleanMap();
+        corners = DefineMinMaxCorners();
+        Vector3 chunkSize = GetChunkSize(corners.Item1, corners.Item2);
 
-    private void cleanMap(){
-        for (int i = 1; i < transform.childCount; ++i){
-            Destroy(transform.GetChild(i).gameObject);
-        }
-    }
-    
-    public void MakeMap(){
-        cleanMap();
-        DefineCorners();
-        
-        chunkSize = getChunkSize();
         if (chunkSize == Vector3.zero){
-            Debug.Log("Invalid chunkSize." + chunkSize);
-            return;
+            Debug.Log("Invalid chunkSize.");
+            return false;
         }
 
-
-        Vector2Int chunksNumber2D = new Vector2Int(chunksNumber.x, chunksNumber.z);
-        imageSize = chunksNumber2D * ((int)Mathf.Pow(2, maxLevel));
-        Debug.Log("Image size: " + imageSize);
+        // Vector2Int chunksNumber2D = new Vector2Int(chunksNumber.x, chunksNumber.z);
+        // imageSize = chunksNumber2D * ((int)Mathf.Pow(2, maxLevel));
+        // Debug.Log("Image size: " + imageSize);
         
         Vector3Int voxelMapSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
-        voxelMap.SetMapSize(ref voxelMapSize);
-        voxelMap.SetMinCorner(ref minCorner);
-        Vector3 range = maxCorner - minCorner;
+        voxelMap.SetMapSize(voxelMapSize);
+        Debug.Log(corners.Item1.x + ", " + corners.Item1.y + ", " + corners.Item1.z);
+        voxelMap.SetMinCorner(corners.Item1);
+        Vector3 range = corners.Item2 - corners.Item1;
         Vector3 gridSize = new Vector3(
             range.x / voxelMapSize.x, 
             range.y / voxelMapSize.y,
             range.z / voxelMapSize.z);
-        voxelMap.SetGridSize(ref gridSize);
+        Debug.Log(gridSize);
+        voxelMap.SetGridSize(gridSize);
 
-        mapImage = new Texture2D(imageSize.x, imageSize.y, TextureFormat.RGB24, false);
-        mappingDuration = 0.0f;
-        GenerateChunks();
+        // mapImage = new Texture2D(imageSize.x, imageSize.y, TextureFormat.RGB24, false);
+        // mappingDuration = 0.0f;
+        return GenerateChunks(corners.Item1, corners.Item2, chunkSize);
+    }
+    public Vector3 GetMinCorner(){
+        return corners.Item1;
     }
 
-    public Vector3 getMinCorner(){
-        return minCorner;
-    }
+    // public void setMapPixel(int x, int y){
+    //     Color pixColor = mapImage.GetPixel(x, y);
+    //     pixColor.a = 1.0f;
+    //     pixColor.r-=0.1f;
+    //     pixColor.g-=0.1f;
+    //     pixColor.b-=0.1f;
+    //     mapImage.SetPixel(x, y, pixColor);
+    //     mapImage.Apply();
 
-    public void setVoxel(){
+    //     if (panel == null){
+    //         Debug.Log("No panel attached.");
+    //     } else if (mapImage != null){
+    //         Sprite new_sprite = Sprite.Create(mapImage, 
+    //             new Rect(0.0f, 0.0f, mapImage.width, mapImage.height),
+    //             new Vector2(0.5f, 0.5f));
+    //         panel.GetComponent<Image>().overrideSprite = new_sprite;
+    //     }
+    // }
 
-    }
-    public void setMapPixel(int x, int y){
-        Color pixColor = mapImage.GetPixel(x, y);
-        pixColor.a = 1.0f;
-        pixColor.r-=0.1f;
-        pixColor.g-=0.1f;
-        pixColor.b-=0.1f;
-        mapImage.SetPixel(x, y, pixColor);
-        mapImage.Apply();
+    // public void SaveMap(){
+    //     SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VRPP_ROS/launch" + "/map.png");
+    //     voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
+    // }
+    // private static void SaveTextureAsPNG(Texture2D _texture, string _fullPath)
+    // {
+    //     byte[] _bytes =_texture.EncodeToPNG();
+    //     System.IO.File.WriteAllBytes(_fullPath, _bytes);
+    //     Debug.Log(_bytes.Length/1024  + "Kb was saved as: " + _fullPath);
+    // }
 
-        if (panel == null){
-            Debug.Log("No panel attached.");
-        } else if (mapImage != null){
-            Sprite new_sprite = Sprite.Create(mapImage, 
-                new Rect(0.0f, 0.0f, mapImage.width, mapImage.height),
-                new Vector2(0.5f, 0.5f));
-            panel.GetComponent<Image>().overrideSprite = new_sprite;
-        }
-    }
+    // public void setStartPoint(Vector3 newPoint){
+    //     float x = Mathf.Round(newPoint.x / gridSize.x)*gridSize.x;
+    //     float z = Mathf.Round(newPoint.z / gridSize.z)*gridSize.z;
+    //     Vector3 gridPoint = new Vector3(
+    //         x, newPoint.y, z
+    //     );
 
-    public void SaveMap(){
-        SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VRPP_ROS/launch" + "/map.png");
-        voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
-    }
-    private static void SaveTextureAsPNG(Texture2D _texture, string _fullPath)
-    {
-        byte[] _bytes =_texture.EncodeToPNG();
-        System.IO.File.WriteAllBytes(_fullPath, _bytes);
-        Debug.Log(_bytes.Length/1024  + "Kb was saved as: " + _fullPath);
-    }
-
-    public void setStartPoint(Vector3 newPoint){
-        float x = Mathf.Round(newPoint.x / gridSize.x)*gridSize.x;
-        float z = Mathf.Round(newPoint.z / gridSize.z)*gridSize.z;
-        Vector3 gridPoint = new Vector3(
-            x, newPoint.y, z
-        );
-
-        startPointObj.transform.position = gridPoint;
-        startPointObj.localScale = gridSize;
+    //     startPointObj.transform.position = gridPoint;
+    //     startPointObj.localScale = gridSize;
         
-        startPoint = new Vector2Int(
-            ((int)Mathf.Round(newPoint.x / gridSize.x)),
-            ((int)Mathf.Round(newPoint.z / gridSize.z))
-        );
-    }
+    //     startPoint = new Vector2Int(
+    //         ((int)Mathf.Round(newPoint.x / gridSize.x)),
+    //         ((int)Mathf.Round(newPoint.z / gridSize.z))
+    //     );
+    // }
 
-    public void setGoalPoint(Vector3 newPoint){
-        float x = Mathf.Round(newPoint.x / gridSize.x)*gridSize.x;
-        float z = Mathf.Round(newPoint.z / gridSize.z)*gridSize.z;
-        Vector3 gridPoint = new Vector3(
-            x, newPoint.y, z
-        );
+    // public void setGoalPoint(Vector3 newPoint){
+    //     float x = Mathf.Round(newPoint.x / gridSize.x)*gridSize.x;
+    //     float z = Mathf.Round(newPoint.z / gridSize.z)*gridSize.z;
+    //     Vector3 gridPoint = new Vector3(
+    //         x, newPoint.y, z
+    //     );
 
-        goalPointObj.transform.position = gridPoint;
-        goalPointObj.localScale = gridSize;
+    //     goalPointObj.transform.position = gridPoint;
+    //     goalPointObj.localScale = gridSize;
 
-        goalPoint = new Vector2Int(
-            ((int)Mathf.Round(newPoint.x / gridSize.x)),
-            ((int)Mathf.Round(newPoint.z / gridSize.z))
-        );
-    }
+    //     goalPoint = new Vector2Int(
+    //         ((int)Mathf.Round(newPoint.x / gridSize.x)),
+    //         ((int)Mathf.Round(newPoint.z / gridSize.z))
+    //     );
+    // }
 }

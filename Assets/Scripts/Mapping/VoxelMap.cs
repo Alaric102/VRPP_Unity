@@ -6,50 +6,76 @@ using System.Text;
 public class VoxelMap : MonoBehaviour
 {
     private Vector3Int mapSize_;
-    private Vector3 gridSize_;
-    private Vector3 minCorner_;
-    private int voxelCapacity_;
-    private Dictionary<Vector3Int, bool> voxelMap = new Dictionary<Vector3Int, bool>(0);
+    private Transform obstacleCell = null;
+    private Vector3 gridSize_, minCorner_;
+    private Dictionary<Vector3Int, Vector3> voxelMap = new Dictionary<Vector3Int, Vector3>(0);
     void Awake() {
-        
+        obstacleCell = transform.GetChild(2);
     }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
-    public void SetMapSize(ref Vector3Int v){
+    public void SetMapSize(Vector3Int v){
         mapSize_ = v;
-        voxelCapacity_ = mapSize_.x * mapSize_.y * mapSize_.z;
-        voxelMap = new Dictionary<Vector3Int, bool>(voxelCapacity_);
-        Debug.Log("New voxel size: " + mapSize_ + ", capacity: " + voxelCapacity_);
+        voxelMap = new Dictionary<Vector3Int, Vector3>(mapSize_.x * mapSize_.y * mapSize_.z);
+        Debug.Log("New voxel size: " + mapSize_);
     }
-    public void SetGridSize(ref Vector3 v){
+    public void SetGridSize(Vector3 v){
         gridSize_ = v;
     }
-    public void SetMinCorner(ref Vector3 v){
+    public void SetMinCorner(Vector3 v){
         minCorner_ = v;
     }
-    public void setMapVoxel(ref Vector3Int v, bool isObstacle){
-        voxelMap[v] = isObstacle;
+    public void SetObstacleCell(Vector3Int vDiscrete, Vector3 vCont){
+        voxelMap[vDiscrete] = vCont;
+    }
+    public void ShowMap(){
+        if (obstacleCell == null){
+            Debug.Log("Empty boundary Item!");
+            return;
+        }
+        foreach (var item in voxelMap) {
+            Transform newObj = Instantiate(obstacleCell, item.Value, Quaternion.identity, transform);
+            newObj.localScale = gridSize_;
+            transform.GetChild(0).gameObject.SetActive(true);
+        }
+    }
+    public Vector3 GetContinuousState(Vector3Int v){
+        return new Vector3(
+            (v.x)*gridSize_.x + gridSize_.x/2.0f + minCorner_.x ,
+            (v.y)*gridSize_.y + gridSize_.y/2.0f + minCorner_.y ,
+            (v.z)*gridSize_.z + gridSize_.z/2.0f + minCorner_.z );
+    }
+    public Vector3Int GetDescreteState(Vector3 v){
+        Vector3 unsignedGlobalPose = v - minCorner_;
+        return new Vector3Int(
+                ((int)Mathf.Floor(unsignedGlobalPose.x/gridSize_.x)),
+                ((int)Mathf.Floor(unsignedGlobalPose.y/gridSize_.y)),
+                ((int)Mathf.Floor(unsignedGlobalPose.z/gridSize_.z)));
+    }
+    private bool IsOnMap(Vector3Int v){
+        return (v.x >= 0 && v.x < mapSize_.x) && 
+            (v.y >= 0 && v.y < mapSize_.y) && 
+            (v.z >= 0 && v.z < mapSize_.z);
+    }
+    public bool IsObstacle(Vector3Int v){
+        if (!IsOnMap(v))
+            return true;
+        return voxelMap.ContainsKey(v);
     }
 
-    public void SaveVoxelMap(string _fullPath){
-        StreamWriter file = new StreamWriter(_fullPath, append: false);
-        file.Write(FormatVector3Int(mapSize_) + "\n");
-        file.Write(FormatVector3(gridSize_) + "\n");
-        file.Write(FormatVector3(minCorner_) + "\n");
-        foreach( KeyValuePair<Vector3Int, bool> item in voxelMap){
-            file.Write(FormatVector3Int(item.Key) + " " + item.Value.ToString() + "\n");
-        }
-        file.Close();
-        Debug.Log("Voxel map saved to " + _fullPath);
-    }
-    private string FormatVector3Int(Vector3Int v){
-        return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
-    }
-    private string FormatVector3(Vector3 v){
-        return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
-    }
+    // public void SaveVoxelMap(string _fullPath){
+    //     StreamWriter file = new StreamWriter(_fullPath, append: false);
+    //     file.Write(FormatVector3Int(mapSize_) + "\n");
+    //     file.Write(FormatVector3(gridSize_) + "\n");
+    //     file.Write(FormatVector3(minCorner_) + "\n");
+    //     foreach( KeyValuePair<Vector3Int, bool> item in voxelMap){
+    //         file.Write(FormatVector3Int(item.Key) + " " + item.Value.ToString() + "\n");
+    //     }
+    //     file.Close();
+    //     Debug.Log("Voxel map saved to " + _fullPath);
+    // }
+    // private string FormatVector3Int(Vector3Int v){
+    //     return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
+    // }
+    // private string FormatVector3(Vector3 v){
+    //     return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
+    // }
 }
