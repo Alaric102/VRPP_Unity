@@ -5,7 +5,8 @@ using UnityEngine;
 
 public class Navigation : MonoBehaviour
 {
-    public SocketBridge socketBridge = null;
+    private GlobalPlanner gPlanner;
+    // public SocketBridge socketBridge = null;
     private Transform startState, goalState, obstacleState, requestedState, body;
     private Vector3 startRotation, goalRotation; // Required to store angles in range [-180, 180)
     private LineRenderer globalPlanLine = null;
@@ -25,6 +26,7 @@ public class Navigation : MonoBehaviour
 
         body = requestedState.GetChild(0);
         globalPlanLine = transform.GetComponent<LineRenderer>();
+        gPlanner = transform.GetComponent<GlobalPlanner>();
         obstacleState.gameObject.SetActive(false);
     }
     void Start()
@@ -214,13 +216,15 @@ public class Navigation : MonoBehaviour
         newObst.GetChild(0).GetComponent<Collider>().enabled = true;
     } 
     public void StartPlanning(){
-        // Send start and goal states
-        Quaternion q = Quaternion.Euler(startRotation);
-        socketBridge.SendStartPoint(startState.position, startRotation);
-        q = Quaternion.Euler(goalRotation);
-        socketBridge.SendGoalPoint(goalState.position, goalRotation);
-        // Request plan
-        socketBridge.RequestPlan();
+        gPlanner.StartPlan(startState.position, goalState.position);
+        gPlanner.ShowPlan();
+        // // Send start and goal states
+        // Quaternion q = Quaternion.Euler(startRotation);
+        // socketBridge.SendStartPoint(startState.position, startRotation);
+        // q = Quaternion.Euler(goalRotation);
+        // socketBridge.SendGoalPoint(goalState.position, goalRotation);
+        // // Request plan
+        // socketBridge.RequestPlan();
     }
     public void SetGlobalPlan(List<Vector3> path){
         globalPath = path;

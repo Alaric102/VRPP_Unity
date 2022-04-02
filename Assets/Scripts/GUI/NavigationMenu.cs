@@ -51,7 +51,7 @@ public class NavigationMenu : MonoBehaviour {
         // show menu if menu is active and not setting start/goal states or editting path/obstacles
         if (menuIsActive && !(isSettingStartState || isSettingGoalState || isSettingObstacle)){
             ShowMenu(true);
-            getMenuStatus(trackpadVector);
+            GetMenuStatus(trackpadVector);
             HighlightSelected();
             helpBar.SetHelpText("Press trackpad to select option.");
         } else {
@@ -114,7 +114,7 @@ public class NavigationMenu : MonoBehaviour {
         editPathPanel.SetActive(isShow);
         resetPanel.SetActive(isShow);
     }
-    private int getMenuStatus(Vector2 axis){
+    private int GetMenuStatus(Vector2 axis){
         float angle = Vector2.Angle(Vector2.right, axis) * Mathf.Sign(axis.y);
         float length = Vector2.SqrMagnitude(axis);
         menuStatus = ((int)MenuStatus.NOTHING);
