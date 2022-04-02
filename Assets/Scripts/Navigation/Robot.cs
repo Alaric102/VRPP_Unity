@@ -197,54 +197,17 @@ public class Robot : MonoBehaviour
         Vector3 footPoseRL = FindStableFoot(stepDirection - ((stepNumber + 3) % 4) / 2.0f * stepDirection, RLjoint2);
         Vector3 footPoseRR = FindStableFoot(stepDirection - ((stepNumber + 1) % 4) / 2.0f * stepDirection, RRjoint2);
 
-        Vector3 pos = body.InverseTransformVector(footPoseFL - FLjoint1.position);
+        Vector3 pos = transform.InverseTransformVector(footPoseFL - FLjoint1.position);
         ApplyFLAngles(ResolveInverseKinematicsFL(pos));
         
-        pos = body.InverseTransformVector(footPoseFR - FRjoint1.position);
+        pos = transform.InverseTransformVector(footPoseFR - FRjoint1.position);
         ApplyFRAngles(ResolveInverseKinematicsFR(pos));
         
-        pos = body.InverseTransformVector(footPoseRL - RLjoint1.position);
+        pos = transform.InverseTransformVector(footPoseRL - RLjoint1.position);
         ApplyRLAngles(ResolveInverseKinematicsRL(pos));
         
-        pos = body.InverseTransformVector(footPoseRR - RRjoint1.position);
+        pos = transform.InverseTransformVector(footPoseRR - RRjoint1.position);
         ApplyRRAngles(ResolveInverseKinematicsRR(pos));
-        // RaycastHit hitFLHeap, hitFRHeap, hitRLHeap, hitRRHeap, hitBody;
-        
-        // Vector3 FRStep = ;
-        // Vector3 RLStep = ;
-        // Vector3 RRStep = ;
-
-        // Vector3 FLDirectionRay = Vector3.zero; Vector3 FRDirectionRay = Vector3.zero;
-        // Vector3 RLDirectionRay = Vector3.zero; Vector3 RRDirectionRay = Vector3.zero;
-
-        // if (Physics.Raycast(FLjoint2.position, -Vector3.up, out hitFLHeap, Mathf.Infinity, ~0)){
-        //     Vector3 direction = hitFLHeap.point + FLStep - FLjoint2.position;
-        //     if (Physics.Raycast(FLjoint2.position, direction, out hitFLHeap, Mathf.Infinity, ~0)){
-        //         Debug.DrawLine(FLjoint2.position, hitFLHeap.point);
-        //         FLDirectionRay = hitFLHeap.point - FLjoint2.position;
-        //     }
-        // }
-        // if (Physics.Raycast(FRjoint2.position, -Vector3.up, out hitFRHeap, Mathf.Infinity, ~0)){
-        //     Vector3 direction = hitFRHeap.point + FRStep - FRjoint2.position;
-        //     if (Physics.Raycast(FRjoint2.position, direction, out hitFRHeap, Mathf.Infinity, ~0)){
-        //         Debug.DrawLine(FRjoint2.position, hitFRHeap.point);
-        //         FRDirectionRay = hitFRHeap.point - FRjoint2.position;
-        //     }
-        // }
-        // if (Physics.Raycast(RLjoint2.position, -Vector3.up, out hitRLHeap, Mathf.Infinity, ~0)){
-        //     Vector3 direction = hitRLHeap.point + RLStep - RLjoint2.position;
-        //     if (Physics.Raycast(RLjoint2.position, direction, out hitRLHeap, Mathf.Infinity, ~0)){
-        //         Debug.DrawLine(RLjoint2.position, hitRLHeap.point);
-        //         RLDirectionRay = hitRLHeap.point - RLjoint2.position;
-        //     }
-        // }
-        // if (Physics.Raycast(RRjoint2.position, -Vector3.up, out hitRRHeap, Mathf.Infinity, ~0)){
-        //     Vector3 direction = hitRRHeap.point + RRStep - RRjoint2.position;
-        //     if (Physics.Raycast(RRjoint2.position, direction, out hitRRHeap, Mathf.Infinity, ~0) ){
-        //         Debug.DrawLine(RRjoint2.position, hitRRHeap.point);
-        //         RRDirectionRay = hitRRHeap.point - RRjoint2.position;
-        //     }
-        // }
 
     }
     public Quaternion GetSurfaceNorm(){
