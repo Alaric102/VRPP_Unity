@@ -6,7 +6,7 @@ using UnityEngine;
 public class Navigation : MonoBehaviour
 {
     public SocketBridge socketBridge = null;
-    private Transform startState, goalState, requestedState, body;
+    private Transform startState, goalState, obstacleState, requestedState, body;
     private Vector3 startRotation, goalRotation; // Required to store angles in range [-180, 180)
     private LineRenderer globalPlanLine = null;
     private List<Vector3> globalPath = new List<Vector3>();
@@ -17,57 +17,60 @@ public class Navigation : MonoBehaviour
     private Vector3 currentPose, currentGoalPose;
     private List<Transform> sampledStates = new List<Transform>();
     void Awake() {
+        // find child objects of Navigation
         startState = transform.GetChild(0);
         goalState = transform.GetChild(1);
         requestedState = transform.GetChild(2);
-        body = requestedState.GetChild(0);
+        obstacleState = transform.GetChild(3);
 
+        body = requestedState.GetChild(0);
         globalPlanLine = transform.GetComponent<LineRenderer>();
+        obstacleState.gameObject.SetActive(false);
     }
     void Start()
     {
-        requestedState.gameObject.SetActive(false);
-        globalPlanLine.positionCount = 0;
-        // removing after debuggin
-        globalPath.Add(new Vector3 (3.609375f,   0.02846878f, 6.8853152f));
-        globalPath.Add(new Vector3 (3.465f,      0.02846878f, 6.5723464f));
-        globalPath.Add(new Vector3 (3.320625f,   0.02846878f, 6.2593776f));
-        globalPath.Add(new Vector3 (2.8875f,     0.02846878f, 6.2593776f));
-        globalPath.Add(new Vector3 (2.02125f,    0.02846878f, 4.3815648f));
-        globalPath.Add(new Vector3 (1.299375f,   0.02846878f, 4.3815648f));
-        globalPath.Add(new Vector3 (1.010625f,   0.02846878f, 3.7556272f));
-        globalPath.Add(new Vector3 (0.5775f,     0.02846878f, 3.7556272f));
-        globalPath.Add(new Vector3 (0.433125f,   0.20581253f, 3.7556272f));
-        globalPath.Add(new Vector3 (0.433125f,   0.41862503f, 3.4426584f));
-        globalPath.Add(new Vector3 (0.144375f,   0.41862503f, 2.8167208f));
-        globalPath.Add(new Vector3 (0.144375f,   0.20581253f, 2.1907832f));
-        globalPath.Add(new Vector3 (0.144375f,   0.02846878f, 1.8778144f));
-        globalPath.Add(new Vector3 (0.144375f,   0.09940628f, 1.5648456f));
-        globalPath.Add(new Vector3 (-0.28875f,     0.09940628f,  0.6259392f));
-        globalPath.Add(new Vector3 (-0.28875f,     0.02846878f,  0.3129704f));
-        globalPath.Add(new Vector3 (-0.721875f,    0.02846878f, -0.625936f));
-        globalPath.Add(new Vector3 (-0.721875f,    0.09940628f, -0.9389048f));
-        globalPath.Add(new Vector3 (-1.155f,       0.09940628f, -1.8778112f));
-        globalPath.Add(new Vector3 (-1.155f,       0.02846878f, -2.19078f));
-        globalPath.Add(new Vector3 (-2.02125f,     0.02846878f, -4.0685928f));
-        globalPath.Add(new Vector3 (-2.743125f,    0.02846878f, -4.0685928f));
-        globalPath.Add(new Vector3 (-3.75375f,     0.02846878f, -6.2593744f));    
-        for (int i = 0; i < globalPath.Count - 1; i++) {
-            Vector3 currentGoal = globalPath[i];
-            Vector3 nextGoal = globalPath[i + 1];
-            Vector3 delta = globalPath[i + 1] - currentGoal;
-            Quaternion targetRotation = GetLocalOrigin(delta);
+        // requestedState.gameObject.SetActive(false);
+        // globalPlanLine.positionCount = 0;
+        // // removing after debuggin
+        // globalPath.Add(new Vector3 (3.609375f,   0.02846878f, 6.8853152f));
+        // globalPath.Add(new Vector3 (3.465f,      0.02846878f, 6.5723464f));
+        // globalPath.Add(new Vector3 (3.320625f,   0.02846878f, 6.2593776f));
+        // globalPath.Add(new Vector3 (2.8875f,     0.02846878f, 6.2593776f));
+        // globalPath.Add(new Vector3 (2.02125f,    0.02846878f, 4.3815648f));
+        // globalPath.Add(new Vector3 (1.299375f,   0.02846878f, 4.3815648f));
+        // globalPath.Add(new Vector3 (1.010625f,   0.02846878f, 3.7556272f));
+        // globalPath.Add(new Vector3 (0.5775f,     0.02846878f, 3.7556272f));
+        // globalPath.Add(new Vector3 (0.433125f,   0.20581253f, 3.7556272f));
+        // globalPath.Add(new Vector3 (0.433125f,   0.41862503f, 3.4426584f));
+        // globalPath.Add(new Vector3 (0.144375f,   0.41862503f, 2.8167208f));
+        // globalPath.Add(new Vector3 (0.144375f,   0.20581253f, 2.1907832f));
+        // globalPath.Add(new Vector3 (0.144375f,   0.02846878f, 1.8778144f));
+        // globalPath.Add(new Vector3 (0.144375f,   0.09940628f, 1.5648456f));
+        // globalPath.Add(new Vector3 (-0.28875f,     0.09940628f,  0.6259392f));
+        // globalPath.Add(new Vector3 (-0.28875f,     0.02846878f,  0.3129704f));
+        // globalPath.Add(new Vector3 (-0.721875f,    0.02846878f, -0.625936f));
+        // globalPath.Add(new Vector3 (-0.721875f,    0.09940628f, -0.9389048f));
+        // globalPath.Add(new Vector3 (-1.155f,       0.09940628f, -1.8778112f));
+        // globalPath.Add(new Vector3 (-1.155f,       0.02846878f, -2.19078f));
+        // globalPath.Add(new Vector3 (-2.02125f,     0.02846878f, -4.0685928f));
+        // globalPath.Add(new Vector3 (-2.743125f,    0.02846878f, -4.0685928f));
+        // globalPath.Add(new Vector3 (-3.75375f,     0.02846878f, -6.2593744f));    
+        // for (int i = 0; i < globalPath.Count - 1; i++) {
+        //     Vector3 currentGoal = globalPath[i];
+        //     Vector3 nextGoal = globalPath[i + 1];
+        //     Vector3 delta = globalPath[i + 1] - currentGoal;
+        //     Quaternion targetRotation = GetLocalOrigin(delta);
 
-            Debug.DrawRay(currentGoal, targetRotation*Vector3.forward * 0.15f, Color.blue);
-            Debug.DrawRay(currentGoal, targetRotation*Vector3.up * 0.15f, Color.green);
-            Debug.DrawRay(currentGoal, targetRotation*Vector3.right * 0.15f, Color.red);
+        //     Debug.DrawRay(currentGoal, targetRotation*Vector3.forward * 0.15f, Color.blue);
+        //     Debug.DrawRay(currentGoal, targetRotation*Vector3.up * 0.15f, Color.green);
+        //     Debug.DrawRay(currentGoal, targetRotation*Vector3.right * 0.15f, Color.red);
             
-            Vector3 hShift = GetHorizonDisplacement(currentGoal, targetRotation);
-            globalPath[i] += hShift;
-        }   
-        DrawGlobalPlan();
+        //     Vector3 hShift = GetHorizonDisplacement(currentGoal, targetRotation);
+        //     globalPath[i] += hShift;
+        // }   
+        // DrawGlobalPlan();
 
-        currentPose = startState.position;
+        // currentPose = startState.position;
     }
     private void DrawGlobalPlan(){
         globalPlanLine.positionCount = globalPath.Count;
@@ -130,81 +133,86 @@ public class Navigation : MonoBehaviour
         }
         return res;
     }
-    void Update()
-    {
-        DrawGlobalPlan();
-        // Get next goal state
-        currentGoalPose = GetNextGlobalGoal(currentPose);
+    void Update() {
+        // DrawGlobalPlan();
+        // // Get next goal state
+        // currentGoalPose = GetNextGlobalGoal(currentPose);
 
-        // Calculate direction to goal state from current state
-        Vector3 currentGoalDelta = currentGoalPose - currentPose;
-        Quaternion currentTargetRotation = GetLocalOrigin(currentGoalDelta);
-        Vector3 currentMeanPose = currentPose + currentTargetRotation*Vector3.up * displaysmentUp;
-        // Draw directed origin of current mean pose
-        Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.forward * 0.15f, Color.gray);
-        Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.up * 0.15f, Color.gray);
-        Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.right * 0.15f, Color.gray);
+        // // Calculate direction to goal state from current state
+        // Vector3 currentGoalDelta = currentGoalPose - currentPose;
+        // Quaternion currentTargetRotation = GetLocalOrigin(currentGoalDelta);
+        // Vector3 currentMeanPose = currentPose + currentTargetRotation*Vector3.up * displaysmentUp;
+        // // Draw directed origin of current mean pose
+        // Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.forward * 0.15f, Color.gray);
+        // Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.up * 0.15f, Color.gray);
+        // Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.right * 0.15f, Color.gray);
 
-        // Predict next state
-        Vector3 delta = Vector3.ClampMagnitude(currentGoalDelta, maxStepLength*2.0f);
-        Vector3 nextPose = currentPose + delta;
-        Vector3 nextMeanPose  = nextPose + currentTargetRotation*Vector3.up * displaysmentUp;
-        // Draw directed origin of current mean pose and delta
-        Debug.DrawRay(currentMeanPose, delta, Color.red);
-        Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.forward * 0.15f, Color.red);
-        Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.up * 0.15f, Color.red);
-        Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.right * 0.15f, Color.red);
+        // // Predict next state
+        // Vector3 delta = Vector3.ClampMagnitude(currentGoalDelta, maxStepLength*2.0f);
+        // Vector3 nextPose = currentPose + delta;
+        // Vector3 nextMeanPose  = nextPose + currentTargetRotation*Vector3.up * displaysmentUp;
+        // // Draw directed origin of current mean pose and delta
+        // Debug.DrawRay(currentMeanPose, delta, Color.red);
+        // Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.forward * 0.15f, Color.red);
+        // Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.up * 0.15f, Color.red);
+        // Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.right * 0.15f, Color.red);
 
-        // Calculate needed shift
-        Vector3 hShift = GetHorizonDisplacement(nextMeanPose, currentTargetRotation);
-        delta = Vector3.ClampMagnitude(delta + hShift, maxStepLength*2.0f);
-        Quaternion nextTargetRotation = GetLocalOrigin(delta);
-        nextPose = currentPose + delta;
-        nextMeanPose  = nextPose + nextTargetRotation*Vector3.up * displaysmentUp;
+        // // Calculate needed shift
+        // Vector3 hShift = GetHorizonDisplacement(nextMeanPose, currentTargetRotation);
+        // delta = Vector3.ClampMagnitude(delta + hShift, maxStepLength*2.0f);
+        // Quaternion nextTargetRotation = GetLocalOrigin(delta);
+        // nextPose = currentPose + delta;
+        // nextMeanPose  = nextPose + nextTargetRotation*Vector3.up * displaysmentUp;
         
-        // Draw directed origin of next mean pose and delta
-        Debug.DrawRay(currentMeanPose, delta, Color.green);
-        Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.forward * 0.15f, Color.green);
-        Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.up * 0.15f, Color.green);
-        Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.right * 0.15f, Color.green);
+        // // Draw directed origin of next mean pose and delta
+        // Debug.DrawRay(currentMeanPose, delta, Color.green);
+        // Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.forward * 0.15f, Color.green);
+        // Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.up * 0.15f, Color.green);
+        // Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.right * 0.15f, Color.green);
         
-        if (sampledStates.Count > 0){
-            Destroy(sampledStates[0].gameObject);
-            sampledStates.RemoveAt(0);
-        }
-        Transform newObj = Instantiate(requestedState, nextMeanPose, nextTargetRotation, transform);
-        newObj.gameObject.SetActive(true);
-        sampledStates.Add(newObj);
+        // if (sampledStates.Count > 0){
+        //     Destroy(sampledStates[0].gameObject);
+        //     sampledStates.RemoveAt(0);
+        // }
+        // Transform newObj = Instantiate(requestedState, nextMeanPose, nextTargetRotation, transform);
+        // newObj.gameObject.SetActive(true);
+        // sampledStates.Add(newObj);
         
-        Robot newRobot = newObj.GetComponent<Robot>();
-        Quaternion xRotation = newRobot.GetSurfaceNorm();
-        Vector3 vShift = newRobot.GetSurfaceShift(displaysmentUp);
-        nextTargetRotation = Quaternion.Lerp(nextTargetRotation, nextTargetRotation*xRotation, 0.5f);
-        nextMeanPose += vShift;
-        newObj.position = nextMeanPose;
-        newObj.rotation = nextTargetRotation;
+        // Robot newRobot = newObj.GetComponent<Robot>();
+        // Quaternion xRotation = newRobot.GetSurfaceNorm();
+        // Vector3 vShift = newRobot.GetSurfaceShift(displaysmentUp);
+        // nextTargetRotation = Quaternion.Lerp(nextTargetRotation, nextTargetRotation*xRotation, 0.5f);
+        // nextMeanPose += vShift;
+        // newObj.position = nextMeanPose;
+        // newObj.rotation = nextTargetRotation;
 
-        Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.forward * 0.15f, Color.blue);
-        Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.up * 0.15f, Color.blue);
-        Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.right * 0.15f, Color.blue);
+        // Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.forward * 0.15f, Color.blue);
+        // Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.up * 0.15f, Color.blue);
+        // Debug.DrawRay(nextMeanPose, nextTargetRotation*Vector3.right * 0.15f, Color.blue);
 
-        newRobot.GetStableFoot(delta, pathCounter);
+        // newRobot.GetStableFoot(delta, pathCounter);
 
-        currentPose = nextPose;
-        pathCounter = (pathCounter + 1) % 4;
+        // currentPose = nextPose;
+        // pathCounter = (pathCounter + 1) % 4;
 
     }
-    public void SetStartState(ref Vector3 v, ref Vector3 r){
-        startState.position = v;
-        startState.rotation = Quaternion.Euler(r);
-        startRotation = r;
-    } // Set start State from Navigation Menu
-    public void SetGoalState(ref Vector3 v, ref Vector3 r){ 
-        goalState.position = v;
-        goalState.rotation = Quaternion.Euler(r);
-        goalRotation = r;
-    } // Set goal State from Navigation Menu
-
+    public Transform GetStartState(){ // Get activated star state transform
+        startState.gameObject.SetActive(true);
+        return startState;
+    }
+    public Transform GetGoalState(){ // Get activated star state transform
+        goalState.gameObject.SetActive(true);
+        return goalState;
+    }
+    public Transform GetObstacleState(){ // Get activated obstacle transform with disabled collider
+        obstacleState.gameObject.SetActive(true);
+        obstacleState.GetChild(0).GetComponent<Collider>().enabled = false;
+        return obstacleState;
+    } 
+    public void GenerateObstacle(){ // Generate new obstacle from prefab with activated collider
+        Transform newObst = Instantiate(obstacleState, obstacleState.position, obstacleState.rotation, transform);
+        newObst.GetChild(0).GetComponent<Collider>().enabled = true;
+    } 
     public void StartPlanning(){
         // Send start and goal states
         Quaternion q = Quaternion.Euler(startRotation);
@@ -214,11 +222,9 @@ public class Navigation : MonoBehaviour
         // Request plan
         socketBridge.RequestPlan();
     }
-
     public void SetGlobalPlan(List<Vector3> path){
         globalPath = path;
     }
-
     public void CheckStateCollision(Vector3 v){
         Debug.Log("Request: " + v.x.ToString() + ", " + v.y.ToString() + ", " + v.z.ToString());
         // requestedStates.Add(v);
