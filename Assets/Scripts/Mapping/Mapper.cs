@@ -43,7 +43,6 @@ public class Mapper : MonoBehaviour
             } else {
                 Debug.Log("MappingDuration: " + mappingDuration.ToString());
                 isMapping = false;
-                voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
                 navigation.StartPlanning();
             }
         }
@@ -157,12 +156,35 @@ public class Mapper : MonoBehaviour
     public void GenerateObstacle(){ // Generate new obstacle from prefab with activated collider
         Transform newObst = Instantiate(obstacleState, obstacleState.position, obstacleState.rotation);
         newObst.gameObject.SetActive(true);
-        newObst.GetChild(0).GetComponent<Collider>().enabled = true;
         newObst.name = "userObst";
-        MakeMap();
+        newObst.GetChild(0).GetComponent<Collider>().enabled = true;
+        UpdateMap(obstacleState);
     }
-    private void UpdateMap(Transform boundary){
+    private void UpdateMap(Transform obstacle){
         // Implement updating mapp in some region
+        Vector3Int pos = voxelMap.GetDescreteState(obstacle.position);
+        Vector3 scale = obstacle.lossyScale;
+        Vector3Int range = new Vector3Int(
+            ((int)(scale.x/voxelMap.GetGridSize().x)),
+            ((int)(scale.y/voxelMap.GetGridSize().y)),
+            ((int)(scale.z/voxelMap.GetGridSize().z))
+        );
+        isMapping = true;
+        for (int x = pos.x - range.x; x < pos.x + range.x; ++x)
+            for (int y = pos.y - range.y; y < pos.y + range.y; ++y)
+                for (int z = pos.z - range.z; z < pos.z + range.z; ++z){
+                    if (!voxelMap.IsObstacle(new Vector3Int(x, y, z))){
+                        Vector3 newPos = voxelMap.GetContinuousState(new Vector3Int(x, y, z));
+                        Vector3 min = newPos - voxelMap.GetGridSize() / 2.0f;
+                        Vector3 max = newPos + voxelMap.GetGridSize() / 2.0f;
+                        
+                        Transform newObj = Instantiate(gridRunner, newPos, Quaternion.identity, transform);
+                        newObj.GetComponent<BinRunner>().SetCorners(min, max);
+                        newObj.GetComponent<BinRunner>().SetRecursionLevels(maxLevel, maxLevel);
+                        newObj.GetComponent<Collider>().enabled = false;
+                        newObj.gameObject.SetActive(true);
+                    }
+                }
     }
     // public void setMapPixel(int x, int y){
     //     Color pixColor = mapImage.GetPixel(x, y);
@@ -183,10 +205,10 @@ public class Mapper : MonoBehaviour
     //     }
     // }
 
-    // public void SaveMap(){
-    //     SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VRPP_ROS/launch" + "/map.png");
-    //     voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
-    // }
+    public void SaveMap(){
+        // SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VRPP_ROS/launch" + "/map.png");
+        voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
+    }
     // private static void SaveTextureAsPNG(Texture2D _texture, string _fullPath)
     // {
     //     byte[] _bytes =_texture.EncodeToPNG();

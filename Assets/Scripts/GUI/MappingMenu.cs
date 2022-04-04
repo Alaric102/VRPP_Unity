@@ -160,7 +160,7 @@ public class MappingMenu : MonoBehaviour
                 mapper.MakeMap();
                 break;
             case ((int)MenuStatus.SAVE_MAP):
-                // mapper.SaveMap();
+                mapper.SaveMap();
                 break;
             case ((int)MenuStatus.ADD_OBSTACLE):
                 isSettingObstacle = true;

@@ -45,7 +45,7 @@ public class Navigation : MonoBehaviour
         if (globalPath.Count == 0){
             return startState.position;
         }
-        Debug.Log("Distance to goal: " + (globalPath[0] - currentPose).magnitude);
+        // Debug.Log("Distance to goal: " + (globalPath[0] - currentPose).magnitude);
         if ((globalPath[0] - currentPose).magnitude > maxStepLength * 2.0f)
             return globalPath[0];
         else if (globalPath.Count > 1)

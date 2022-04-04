@@ -43,6 +43,15 @@ public class VoxelMap : MonoBehaviour
             newObj.gameObject.name = item.Key.ToString();
         }
     }
+    public void ShowCell(Vector3Int v){
+        if (!voxelMap.ContainsKey(v)){
+            Debug.Log("No voxel key: " + v);
+            return;
+        }
+        Transform newObj = Instantiate(obstacleCell, voxelMap[v], Quaternion.identity, transform);
+        newObj.localScale = gridSize_;
+        newObj.gameObject.name = voxelMap[v].ToString();
+    }
     public Vector3 GetContinuousState(Vector3Int v){
         return new Vector3(
             (v.x)*gridSize_.x + gridSize_.x/2.0f + minCorner_.x ,
@@ -111,5 +120,9 @@ public class VoxelMap : MonoBehaviour
     private Vector3 FormatStringToVector3(string str){
         double[] numbers = str.Split(' ').Select(n => System.Convert.ToDouble(n)).ToArray();
         return new Vector3(((float)numbers[0]), ((float)numbers[1]), ((float)numbers[2]));
+    }
+    public void UpdateRegion(Transform obstacle){
+        Debug.Log(obstacle.position);
+        Debug.Log(GetDescreteState(obstacle.position));
     }
 }
