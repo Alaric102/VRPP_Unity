@@ -108,7 +108,7 @@ public class CircleBuffer : MonoBehaviour
                     List<Vector3> path = new List<Vector3>();
                     for (int i = 0; i < len; ++i){
                         path.Add(new Vector3(GetFloat(), GetFloat(), GetFloat()));
-                        navigation.SetGlobalPlan(path);
+                        // navigation.SetGlobalPlan(path);
                     }
                     break;
                 } 

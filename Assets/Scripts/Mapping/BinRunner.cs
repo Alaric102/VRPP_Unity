@@ -77,8 +77,6 @@ public class BinRunner : MonoBehaviour {
     public void SetRecursionLevels(int lvl, int maxLvl){
         currentLevel = lvl;
         maxLevel = maxLvl;
-        // spawnDelay = 0.01f*currentLevel;
-        // objectLimit = 1000;
     }
 
     void OnDestroy(){ // On destroy we want to notify voxel map about collision if we reached max level
