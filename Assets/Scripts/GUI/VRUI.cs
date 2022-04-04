@@ -70,6 +70,8 @@ public class VRUI : MonoBehaviour
     private void TriggerPress(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource){
         if (navMenuObj.activeSelf){
             navMenuObj.GetComponent<NavigationMenu>().processTriggerPress();
+        } else if (mapMenuObj.activeSelf){
+            mapMenuObj.GetComponent<MappingMenu>().processTriggerPress();
         }
     }
     public void SetActiveMainMenu(){

@@ -18,46 +18,53 @@ public class Mapper : MonoBehaviour
     // public SocketBridge socketBridge;
 
     // Private declarations
-    private Transform boundary = null, gridRunner = null;
+    private Transform boundary = null, gridRunner = null, obstacleState = null;
     private Tuple<Vector3, Vector3> corners = new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero);
     private VoxelMap voxelMap;
     private float mappingDuration = 0.0f;
+    private bool isMapping = false;
     void Awake() {
         boundary = transform.GetChild(0);
         gridRunner = transform.GetChild(1);
+        obstacleState = transform.GetChild(2);
 
         voxelMap = transform.GetComponent<VoxelMap>();
         
         boundary.gameObject.SetActive(false);
         gridRunner.gameObject.SetActive(false);
+        obstacleState.gameObject.SetActive(false);
     }
     void Start(){
-        MakeMap();
+        if (!voxelMap.LoadVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt"))
+            MakeMap();
     }
     void Update() {
-        if (transform.childCount > 3){
-            mappingDuration += Time.deltaTime;
-        } else if (mappingDuration > 0.0f) {
-            Debug.Log("MappingDuration: " + mappingDuration.ToString());
-            mappingDuration = 0.0f;
+        if (isMapping){
+            if (transform.childCount > 3){
+                mappingDuration += Time.deltaTime;
+            } else {
+                Debug.Log("MappingDuration: " + mappingDuration.ToString());
+                isMapping = false;
+                voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
+            }
         }
     }
     private void CleanMap(){ // Destroy all child pbjects except boundary
         for (int i = 3; i < transform.childCount; ++i)
             Destroy(transform.GetChild(i).gameObject);
     }
-    private Tuple<Vector3, Vector3> DefineMinMaxCorners(){ // define min and max corner vectors from boundary
-        if (boundary == null){
-            Debug.Log("Empty boundary Item!");
+    private Tuple<Vector3, Vector3> DefineMinMaxCorners(Transform bb){ // define min and max corner vectors from boundary
+        if (bb == null){
+            Debug.Log("Empty bb Item!");
             return new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero);
         }
-        boundary.gameObject.SetActive(true);
+        bb.gameObject.SetActive(true);
         Vector3 minCorner = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         Vector3 maxCorner = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-        Mesh mesh = boundary.GetComponent<MeshFilter>().sharedMesh;
+        Mesh mesh = bb.GetComponent<MeshFilter>().sharedMesh;
         Vector3[] vertices = mesh.vertices;
         for (var i = 0; i < vertices.Length; i++) {
-            Vector3 direction = boundary.TransformPoint(vertices[i]);
+            Vector3 direction = bb.TransformPoint(vertices[i]);
             if(direction.x < minCorner.x)
                 minCorner.x = direction.x;
             else if (direction.x > maxCorner.x)
@@ -73,7 +80,7 @@ public class Mapper : MonoBehaviour
             else if (direction.z > maxCorner.z)
                 maxCorner.z = direction.z;
         }
-        boundary.gameObject.SetActive(false);
+        bb.gameObject.SetActive(false);
         return new Tuple<Vector3, Vector3>(minCorner, maxCorner);
     }
     private Vector3 GetChunkSize(Vector3 minCorner, Vector3 maxCorner){ // define size of each chunk
@@ -107,9 +114,9 @@ public class Mapper : MonoBehaviour
                 }
         return true;
     }
-    public bool MakeMap(){
+    public bool MakeMap(){ // Create full map in boundary box
         CleanMap();
-        corners = DefineMinMaxCorners();
+        corners = DefineMinMaxCorners(boundary.transform);
         Vector3 chunkSize = GetChunkSize(corners.Item1, corners.Item2);
 
         if (chunkSize == Vector3.zero){
@@ -123,24 +130,41 @@ public class Mapper : MonoBehaviour
         
         Vector3Int voxelMapSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
         voxelMap.SetMapSize(voxelMapSize);
-        Debug.Log(corners.Item1.x + ", " + corners.Item1.y + ", " + corners.Item1.z);
+        // Debug.Log(corners.Item1.x + ", " + corners.Item1.y + ", " + corners.Item1.z);
         voxelMap.SetMinCorner(corners.Item1);
         Vector3 range = corners.Item2 - corners.Item1;
         Vector3 gridSize = new Vector3(
             range.x / voxelMapSize.x, 
             range.y / voxelMapSize.y,
             range.z / voxelMapSize.z);
-        Debug.Log(gridSize);
+        
         voxelMap.SetGridSize(gridSize);
+        Debug.Log(gridSize.x + ", " + gridSize.y + ", " + gridSize.z + "\n" +
+            chunkSize.x + ", " + chunkSize.y + ", " + chunkSize.z);
 
         // mapImage = new Texture2D(imageSize.x, imageSize.y, TextureFormat.RGB24, false);
         // mappingDuration = 0.0f;
+        isMapping = true;
         return GenerateChunks(corners.Item1, corners.Item2, chunkSize);
     }
     public Vector3 GetMinCorner(){
         return corners.Item1;
     }
-
+    public Transform GetObstacleState(){ // Get activated obstacle transform with disabled collider
+        obstacleState.gameObject.SetActive(true);
+        obstacleState.GetChild(0).GetComponent<Collider>().enabled = false;
+        return obstacleState;
+    }
+    public void GenerateObstacle(){ // Generate new obstacle from prefab with activated collider
+        Transform newObst = Instantiate(obstacleState, obstacleState.position, obstacleState.rotation);
+        newObst.gameObject.SetActive(true);
+        newObst.GetChild(0).GetComponent<Collider>().enabled = true;
+        newObst.name = "userObst";
+        MakeMap();
+    }
+    private void UpdateMap(Transform boundary){
+        // Implement updating mapp in some region
+    }
     // public void setMapPixel(int x, int y){
     //     Color pixColor = mapImage.GetPixel(x, y);
     //     pixColor.a = 1.0f;

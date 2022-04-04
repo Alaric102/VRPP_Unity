@@ -3,14 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.IO;
 using System.Text;
+using System.Linq;
+
 public class VoxelMap : MonoBehaviour
 {
     private Vector3Int mapSize_;
-    private Transform obstacleCell = null;
+    public Transform obstacleCell = null;
     private Vector3 gridSize_, minCorner_;
     private Dictionary<Vector3Int, Vector3> voxelMap = new Dictionary<Vector3Int, Vector3>(0);
     void Awake() {
-        obstacleCell = transform.GetChild(2);
     }
     public void SetMapSize(Vector3Int v){
         mapSize_ = v;
@@ -19,9 +20,14 @@ public class VoxelMap : MonoBehaviour
     }
     public void SetGridSize(Vector3 v){
         gridSize_ = v;
+        Debug.Log("New voxel grid size: " + gridSize_.x + ", " + gridSize_.y + ", " + gridSize_.z);
+    }
+    public Vector3 GetGridSize(){
+        return gridSize_;
     }
     public void SetMinCorner(Vector3 v){
         minCorner_ = v;
+        Debug.Log("New voxel min corner: " + minCorner_.x + ", " + minCorner_.y + ", " + minCorner_.z);
     }
     public void SetObstacleCell(Vector3Int vDiscrete, Vector3 vCont){
         voxelMap[vDiscrete] = vCont;
@@ -34,7 +40,7 @@ public class VoxelMap : MonoBehaviour
         foreach (var item in voxelMap) {
             Transform newObj = Instantiate(obstacleCell, item.Value, Quaternion.identity, transform);
             newObj.localScale = gridSize_;
-            transform.GetChild(0).gameObject.SetActive(true);
+            newObj.gameObject.name = item.Key.ToString();
         }
     }
     public Vector3 GetContinuousState(Vector3Int v){
@@ -60,22 +66,50 @@ public class VoxelMap : MonoBehaviour
             return true;
         return voxelMap.ContainsKey(v);
     }
-
-    // public void SaveVoxelMap(string _fullPath){
-    //     StreamWriter file = new StreamWriter(_fullPath, append: false);
-    //     file.Write(FormatVector3Int(mapSize_) + "\n");
-    //     file.Write(FormatVector3(gridSize_) + "\n");
-    //     file.Write(FormatVector3(minCorner_) + "\n");
-    //     foreach( KeyValuePair<Vector3Int, bool> item in voxelMap){
-    //         file.Write(FormatVector3Int(item.Key) + " " + item.Value.ToString() + "\n");
-    //     }
-    //     file.Close();
-    //     Debug.Log("Voxel map saved to " + _fullPath);
-    // }
-    // private string FormatVector3Int(Vector3Int v){
-    //     return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
-    // }
-    // private string FormatVector3(Vector3 v){
-    //     return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
-    // }
+    public bool LoadVoxelMap(string _fullPath){
+        try {
+            StreamReader reader = new StreamReader(_fullPath);
+            SetMapSize(FormatStringToVector3Int(reader.ReadLine()));
+            SetGridSize(FormatStringToVector3(reader.ReadLine()));
+            SetMinCorner(FormatStringToVector3(reader.ReadLine()));
+            
+            string voxelMapCell;
+            while ((voxelMapCell = reader.ReadLine()) != null) {
+                string[] data = voxelMapCell.Split(';');
+                Vector3Int vD = FormatStringToVector3Int(data[0]);
+                Vector3 vC = FormatStringToVector3(data[1]);
+                SetObstacleCell(vD, vC);
+            }
+            reader.Close();
+        } catch (FileNotFoundException) {
+            Debug.Log("File " + _fullPath + " not found.");
+            return false;
+        }
+        return true;
+    }
+    public void SaveVoxelMap(string _fullPath){
+        StreamWriter file = new StreamWriter(_fullPath, append: false);
+        file.Write(FormatVector3Int(mapSize_) + "\n");
+        file.Write(FormatVector3(gridSize_) + "\n");
+        file.Write(FormatVector3(minCorner_) + "\n");
+        foreach( KeyValuePair<Vector3Int, Vector3> item in voxelMap){
+            file.Write(FormatVector3Int(item.Key) + ";" + FormatVector3(item.Value) + "\n");
+        }
+        file.Close();
+        Debug.Log("Voxel map saved: " + _fullPath);
+    }
+    private string FormatVector3Int(Vector3Int v){
+        return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
+    }
+    private string FormatVector3(Vector3 v){
+        return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
+    }
+    private Vector3Int FormatStringToVector3Int(string str){
+        int[] numbers = str.Split(' ').Select(n => System.Convert.ToInt32(n)).ToArray();
+        return new Vector3Int(numbers[0], numbers[1], numbers[2]);
+    }
+    private Vector3 FormatStringToVector3(string str){
+        double[] numbers = str.Split(' ').Select(n => System.Convert.ToDouble(n)).ToArray();
+        return new Vector3(((float)numbers[0]), ((float)numbers[1]), ((float)numbers[2]));
+    }
 }
