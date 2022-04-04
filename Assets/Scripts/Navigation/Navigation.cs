@@ -29,48 +29,7 @@ public class Navigation : MonoBehaviour
     }
     void Start()
     {
-        // requestedState.gameObject.SetActive(false);
-        // globalPlanLine.positionCount = 0;
-        // // removing after debuggin
-        // globalPath.Add(new Vector3 (3.609375f,   0.02846878f, 6.8853152f));
-        // globalPath.Add(new Vector3 (3.465f,      0.02846878f, 6.5723464f));
-        // globalPath.Add(new Vector3 (3.320625f,   0.02846878f, 6.2593776f));
-        // globalPath.Add(new Vector3 (2.8875f,     0.02846878f, 6.2593776f));
-        // globalPath.Add(new Vector3 (2.02125f,    0.02846878f, 4.3815648f));
-        // globalPath.Add(new Vector3 (1.299375f,   0.02846878f, 4.3815648f));
-        // globalPath.Add(new Vector3 (1.010625f,   0.02846878f, 3.7556272f));
-        // globalPath.Add(new Vector3 (0.5775f,     0.02846878f, 3.7556272f));
-        // globalPath.Add(new Vector3 (0.433125f,   0.20581253f, 3.7556272f));
-        // globalPath.Add(new Vector3 (0.433125f,   0.41862503f, 3.4426584f));
-        // globalPath.Add(new Vector3 (0.144375f,   0.41862503f, 2.8167208f));
-        // globalPath.Add(new Vector3 (0.144375f,   0.20581253f, 2.1907832f));
-        // globalPath.Add(new Vector3 (0.144375f,   0.02846878f, 1.8778144f));
-        // globalPath.Add(new Vector3 (0.144375f,   0.09940628f, 1.5648456f));
-        // globalPath.Add(new Vector3 (-0.28875f,     0.09940628f,  0.6259392f));
-        // globalPath.Add(new Vector3 (-0.28875f,     0.02846878f,  0.3129704f));
-        // globalPath.Add(new Vector3 (-0.721875f,    0.02846878f, -0.625936f));
-        // globalPath.Add(new Vector3 (-0.721875f,    0.09940628f, -0.9389048f));
-        // globalPath.Add(new Vector3 (-1.155f,       0.09940628f, -1.8778112f));
-        // globalPath.Add(new Vector3 (-1.155f,       0.02846878f, -2.19078f));
-        // globalPath.Add(new Vector3 (-2.02125f,     0.02846878f, -4.0685928f));
-        // globalPath.Add(new Vector3 (-2.743125f,    0.02846878f, -4.0685928f));
-        // globalPath.Add(new Vector3 (-3.75375f,     0.02846878f, -6.2593744f));    
-        // for (int i = 0; i < globalPath.Count - 1; i++) {
-        //     Vector3 currentGoal = globalPath[i];
-        //     Vector3 nextGoal = globalPath[i + 1];
-        //     Vector3 delta = globalPath[i + 1] - currentGoal;
-        //     Quaternion targetRotation = GetLocalOrigin(delta);
 
-        //     Debug.DrawRay(currentGoal, targetRotation*Vector3.forward * 0.15f, Color.blue);
-        //     Debug.DrawRay(currentGoal, targetRotation*Vector3.up * 0.15f, Color.green);
-        //     Debug.DrawRay(currentGoal, targetRotation*Vector3.right * 0.15f, Color.red);
-            
-        //     Vector3 hShift = GetHorizonDisplacement(currentGoal, targetRotation);
-        //     globalPath[i] += hShift;
-        // }   
-        // DrawGlobalPlan();
-
-        // currentPose = startState.position;
     }
     private Quaternion GetLocalOrigin(Vector3 delta){
         Vector3 deltaFront = delta.normalized;
@@ -83,12 +42,21 @@ public class Navigation : MonoBehaviour
         return c * b * a;
     }
     private Vector3 GetNextGlobalGoal(Vector3 currentPose){
+        if (globalPath.Count == 0){
+            return startState.position;
+        }
         Debug.Log("Distance to goal: " + (globalPath[0] - currentPose).magnitude);
         if ((globalPath[0] - currentPose).magnitude > maxStepLength * 2.0f)
             return globalPath[0];
         else if (globalPath.Count > 1)
             globalPath.RemoveAt(0);
         return globalPath[0];
+    }
+    private void DrawLocalOrigin(Vector3 pos, Quaternion rot, Color color){
+        float scale = 0.25f;
+        Debug.DrawRay(pos, rot*Vector3.forward * scale, color);
+        Debug.DrawRay(pos, rot*Vector3.up * scale, color);
+        Debug.DrawRay(pos, rot*Vector3.right * scale, color);
     }
     private Vector3 GetHorizonDisplacement(Vector3 pos, Quaternion rot){
         List<Vector3> rayDirections = new List<Vector3>();
@@ -128,28 +96,21 @@ public class Navigation : MonoBehaviour
         return res;
     }
     void Update() {
-        // DrawGlobalPlan();
-        // // Get next goal state
-        // currentGoalPose = GetNextGlobalGoal(currentPose);
+        // Get next goal state
+        currentGoalPose = GetNextGlobalGoal(currentPose);
 
-        // // Calculate direction to goal state from current state
-        // Vector3 currentGoalDelta = currentGoalPose - currentPose;
-        // Quaternion currentTargetRotation = GetLocalOrigin(currentGoalDelta);
-        // Vector3 currentMeanPose = currentPose + currentTargetRotation*Vector3.up * displaysmentUp;
-        // // Draw directed origin of current mean pose
-        // Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.forward * 0.15f, Color.gray);
-        // Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.up * 0.15f, Color.gray);
-        // Debug.DrawRay(currentMeanPose, currentTargetRotation*Vector3.right * 0.15f, Color.gray);
+        // Calculate direction to goal state from current state
+        Vector3 currentGoalDelta = currentGoalPose - currentPose;
+        Quaternion currentTargetRotation = GetLocalOrigin(currentGoalDelta);
+        Vector3 currentMeanPose = currentPose + currentTargetRotation*Vector3.up * displaysmentUp;
+    DrawLocalOrigin(currentMeanPose, currentTargetRotation, Color.gray);
 
-        // // Predict next state
-        // Vector3 delta = Vector3.ClampMagnitude(currentGoalDelta, maxStepLength*2.0f);
-        // Vector3 nextPose = currentPose + delta;
-        // Vector3 nextMeanPose  = nextPose + currentTargetRotation*Vector3.up * displaysmentUp;
-        // // Draw directed origin of current mean pose and delta
-        // Debug.DrawRay(currentMeanPose, delta, Color.red);
-        // Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.forward * 0.15f, Color.red);
-        // Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.up * 0.15f, Color.red);
-        // Debug.DrawRay(nextMeanPose, currentTargetRotation*Vector3.right * 0.15f, Color.red);
+        // Predict next state
+        Vector3 delta = Vector3.ClampMagnitude(currentGoalDelta, maxStepLength*2.0f);
+        Vector3 nextPose = currentPose + delta;
+        Vector3 nextMeanPose  = nextPose + currentTargetRotation*Vector3.up * displaysmentUp;
+    Debug.DrawRay(currentMeanPose, delta, Color.red);
+    DrawLocalOrigin(nextMeanPose, currentTargetRotation, Color.red);
 
         // // Calculate needed shift
         // Vector3 hShift = GetHorizonDisplacement(nextMeanPose, currentTargetRotation);

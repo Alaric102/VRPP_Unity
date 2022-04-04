@@ -13,9 +13,6 @@ public class Mapper : MonoBehaviour
 
     // [Header("Output settings")]
     // public GameObject panel = null;
-    
-    // [Header("Socket interface")]
-    // public SocketBridge socketBridge;
 
     // Private declarations
     private Transform boundary = null, gridRunner = null, obstacleState = null;
@@ -34,6 +31,7 @@ public class Mapper : MonoBehaviour
         gridRunner.gameObject.SetActive(false);
         obstacleState.gameObject.SetActive(false);
     }
+    public Navigation navigation;
     void Start(){
         if (!voxelMap.LoadVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt"))
             MakeMap();
@@ -46,6 +44,7 @@ public class Mapper : MonoBehaviour
                 Debug.Log("MappingDuration: " + mappingDuration.ToString());
                 isMapping = false;
                 voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
+                navigation.StartPlanning();
             }
         }
     }
