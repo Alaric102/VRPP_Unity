@@ -10,8 +10,8 @@ public class NavigationMenu : MonoBehaviour {
     private Vector2 trackpadVector = Vector2.zero;
     private int menuStatus = ((int)MenuStatus.NOTHING);
     private bool isSettingStartState = false, isSettingGoalState = false, isSettingRotation = false;
-    private bool isSettingObstacle = false, isEditingPath = false;
-    private GameObject setStartStatePanel = null, setGoalStatePanel = null, startPlanningPanel = null, addObstaclePanel = null, editPathPanel = null, resetPanel = null;
+    private bool isEditingPath = false;
+    private GameObject setStartStatePanel = null, setGoalStatePanel = null, startPlanningPanel = null, editPathPanel = null, resetPanel = null;
     private VRUI vrui = null;
     private HelpBar helpBar = null;
     private LineRenderer lineRenderer = null;
@@ -21,7 +21,6 @@ public class NavigationMenu : MonoBehaviour {
         SET_GOAL,
         START_PLAN,
         EDIT_PATH,
-        ADD_OBSTACLE,
         BACK
     } 
     [Header("External modules")]
@@ -32,8 +31,7 @@ public class NavigationMenu : MonoBehaviour {
         setStartStatePanel = transform.GetChild(0).gameObject;
         setGoalStatePanel = transform.GetChild(1).gameObject;
         startPlanningPanel = transform.GetChild(2).gameObject;
-        addObstaclePanel = transform.GetChild(3).gameObject;
-        editPathPanel = transform.GetChild(4).gameObject;
+        editPathPanel = transform.GetChild(3).gameObject;
         resetPanel = transform.GetChild(transform.childCount-1).gameObject;
         // find external objects of VR GUI
         vrui = transform.parent.GetComponent<VRUI>();
@@ -49,7 +47,7 @@ public class NavigationMenu : MonoBehaviour {
     void Update() {
         lineRenderer.positionCount = 0;
         // show menu if menu is active and not setting start/goal states or editting path/obstacles
-        if (menuIsActive && !(isSettingStartState || isSettingGoalState || isSettingObstacle)){
+        if (menuIsActive && !(isSettingStartState || isSettingGoalState)){
             ShowMenu(true);
             GetMenuStatus(trackpadVector);
             HighlightSelected();
@@ -87,20 +85,6 @@ public class NavigationMenu : MonoBehaviour {
             string data = GetHelpText(goalState.position, goalState.rotation.eulerAngles);
             helpBar.SetHelpText(prefixStr + "\n" + data, 20);
         }
-        // Process setting obstacle states
-        if (isSettingObstacle){
-            Transform obstacleState = navigation.GetObstacleState();
-            string prefixStr;
-            if (isSettingRotation){
-                obstacleState.rotation = Quaternion.Euler(GetRotationEuler());
-                prefixStr = "Press trigger to finish.";
-            } else {
-                obstacleState.position = GetPosition();
-                prefixStr = "Press trigger to set rotation.";
-            }
-            string data = GetHelpText(obstacleState.position, obstacleState.rotation.eulerAngles);
-            helpBar.SetHelpText(prefixStr + "\n" + data, 20);
-        }
         // Process editting path states
         if (isEditingPath){
 
@@ -110,7 +94,6 @@ public class NavigationMenu : MonoBehaviour {
         setStartStatePanel.SetActive(isShow);
         setGoalStatePanel.SetActive(isShow);
         startPlanningPanel.SetActive(isShow);
-        addObstaclePanel.SetActive(isShow);
         editPathPanel.SetActive(isShow);
         resetPanel.SetActive(isShow);
     }
@@ -125,7 +108,7 @@ public class NavigationMenu : MonoBehaviour {
             } else if (angle > 60.0f){
                 menuStatus = ((int)MenuStatus.NOTHING);
             } else if (angle > 0.0f){
-                menuStatus = ((int)MenuStatus.ADD_OBSTACLE);
+                menuStatus = ((int)MenuStatus.NOTHING);
             } else if (angle > -60.0f) {
                 menuStatus = ((int)MenuStatus.EDIT_PATH);
             } else if (angle > -120.0f){
@@ -142,7 +125,6 @@ public class NavigationMenu : MonoBehaviour {
         setStartStatePanel.GetComponent<Image>().color = Color.white;
         setGoalStatePanel.GetComponent<Image>().color = Color.white;    
         startPlanningPanel.GetComponent<Image>().color = Color.white;  
-        addObstaclePanel.GetComponent<Image>().color = Color.white;
         editPathPanel.GetComponent<Image>().color = Color.white;  
         resetPanel.GetComponent<Image>().color = Color.white;
         // Switch color for selected menu option
@@ -155,9 +137,6 @@ public class NavigationMenu : MonoBehaviour {
                 break;
             case ((int)MenuStatus.START_PLAN):
                 startPlanningPanel.GetComponent<Image>().color = Color.green;
-                break;
-            case ((int)MenuStatus.ADD_OBSTACLE):
-                addObstaclePanel.GetComponent<Image>().color = Color.green;
                 break;
             case ((int)MenuStatus.EDIT_PATH):
                 editPathPanel.GetComponent<Image>().color = Color.green;
@@ -221,9 +200,6 @@ public class NavigationMenu : MonoBehaviour {
             case ((int)MenuStatus.START_PLAN):
                 navigation.StartPlanning();
                 break;
-            case ((int)MenuStatus.ADD_OBSTACLE):
-                isSettingObstacle = true;
-                break;
             case ((int)MenuStatus.EDIT_PATH):
                 isEditingPath = true;
                 break;
@@ -252,16 +228,6 @@ public class NavigationMenu : MonoBehaviour {
             } else {
                 isSettingRotation = true;
             }
-        }
-        if (isSettingObstacle){
-            if (isSettingRotation){
-                isSettingObstacle = false;
-                isSettingRotation = false;
-                navigation.GenerateObstacle();
-            } else {
-                isSettingRotation = true;
-            }
-
         }
     }
     private Vector3 wrapAngle(Vector3 r){

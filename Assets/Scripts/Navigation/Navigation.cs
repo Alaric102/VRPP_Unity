@@ -7,7 +7,7 @@ public class Navigation : MonoBehaviour
 {
     private GlobalPlanner gPlanner;
     // public SocketBridge socketBridge = null;
-    private Transform startState, goalState, obstacleState, requestedState, body;
+    private Transform startState, goalState, requestedState, body;
     private Vector3 startRotation, goalRotation; // Required to store angles in range [-180, 180)
     private LineRenderer globalPlanLine = null;
     private List<Vector3> globalPath = new List<Vector3>();
@@ -22,12 +22,10 @@ public class Navigation : MonoBehaviour
         startState = transform.GetChild(0);
         goalState = transform.GetChild(1);
         requestedState = transform.GetChild(2);
-        obstacleState = transform.GetChild(3);
 
         body = requestedState.GetChild(0);
         globalPlanLine = transform.GetComponent<LineRenderer>();
         gPlanner = transform.GetComponent<GlobalPlanner>();
-        obstacleState.gameObject.SetActive(false);
     }
     void Start()
     {
@@ -73,12 +71,6 @@ public class Navigation : MonoBehaviour
         // DrawGlobalPlan();
 
         // currentPose = startState.position;
-    }
-    private void DrawGlobalPlan(){
-        globalPlanLine.positionCount = globalPath.Count;
-        for (int i = 0; i < globalPath.Count; ++i){
-            globalPlanLine.SetPosition(i, globalPath[i]);
-        }
     }
     private Quaternion GetLocalOrigin(Vector3 delta){
         Vector3 deltaFront = delta.normalized;
@@ -206,28 +198,11 @@ public class Navigation : MonoBehaviour
         goalState.gameObject.SetActive(true);
         return goalState;
     }
-    public Transform GetObstacleState(){ // Get activated obstacle transform with disabled collider
-        obstacleState.gameObject.SetActive(true);
-        obstacleState.GetChild(0).GetComponent<Collider>().enabled = false;
-        return obstacleState;
-    } 
-    public void GenerateObstacle(){ // Generate new obstacle from prefab with activated collider
-        Transform newObst = Instantiate(obstacleState, obstacleState.position, obstacleState.rotation, transform);
-        newObst.GetChild(0).GetComponent<Collider>().enabled = true;
-    } 
     public void StartPlanning(){
-        gPlanner.StartPlan(startState.position, goalState.position);
-        gPlanner.ShowPlan();
-        // // Send start and goal states
-        // Quaternion q = Quaternion.Euler(startRotation);
-        // socketBridge.SendStartPoint(startState.position, startRotation);
-        // q = Quaternion.Euler(goalRotation);
-        // socketBridge.SendGoalPoint(goalState.position, goalRotation);
-        // // Request plan
-        // socketBridge.RequestPlan();
-    }
-    public void SetGlobalPlan(List<Vector3> path){
-        globalPath = path;
+        List<Vector3Int> plan = gPlanner.GetGlobalPlan(startState.position, goalState.position);
+        globalPath = gPlanner.ConvertPlanToCont(plan);
+        gPlanner.ShowPlan(globalPath);
+        
     }
     public void CheckStateCollision(Vector3 v){
         Debug.Log("Request: " + v.x.ToString() + ", " + v.y.ToString() + ", " + v.z.ToString());
@@ -240,23 +215,9 @@ public class Navigation : MonoBehaviour
     private Vector3 wrapAngle(Vector3 r){
         Vector3 res = new Vector3(-180.0f, -180.0f, -180.0f);
         res += r;
-        if (res.x > 0.0f){
-            res.x -= 180.0f;
-        } else {
-            res.x += 180.0f;
-        }
-
-        if (res.y > 0.0f){
-            res.y -= 180.0f;
-        } else {
-            res.y += 180.0f;
-        }
-
-        if (res.z > 0.0f){
-            res.z -= 180.0f;
-        } else {
-            res.z += 180.0f;
-        }
+        res.x += (res.x > 0.0f) ? -180.0f : +180.0f;
+        res.y += (res.y > 0.0f) ? -180.0f : +180.0f;
+        res.z += (res.z > 0.0f) ? -180.0f : +180.0f;
         return res;
     }
     private Quaternion GetSafetyRotattion(Vector3 meanPose, Quaternion localOrigin){

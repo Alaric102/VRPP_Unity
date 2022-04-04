@@ -6,9 +6,44 @@ using UnityEngine;
 public class GlobalPlanner : MonoBehaviour {
     public VoxelMap voxelMap = null;
     public Transform startObj, goalObj, visitedObj;
+    public int UpDownTh = 3;
     private Vector3Int startStateDescrete , goalStateDescrete;
     List<Tuple<float, Vector3Int>> sortedQueue = new List<Tuple<float, Vector3Int>>();
     private Dictionary<Vector3Int, float> visitedStates = new Dictionary<Vector3Int, float>();
+    private class Graph {
+        public Graph(Vector3Int root){
+            graph.Add(root, root);
+        }
+        private Dictionary<Vector3Int, Vector3Int> graph = 
+            new Dictionary<Vector3Int, Vector3Int>();
+        public void Append(Vector3Int node, Vector3Int parent){
+            if (graph.ContainsKey(parent)){
+                if (graph.ContainsKey(node)){
+                    graph[node] = parent;
+                } else {
+                    graph.Add(node, parent);
+                }
+            } else {
+                Debug.Log("No parent: " + parent + " for node: " + node);
+            }
+        }
+        public List<Vector3Int> GetPlan(Vector3Int endState){
+            if (!graph.ContainsKey(endState)){
+                Debug.Log("No end state in graph: " + endState);
+                return new List<Vector3Int>();
+            }
+            List<Vector3Int> path = new List<Vector3Int>{endState};
+            Vector3Int parent = graph[endState];
+            while(graph[parent] != parent){
+                path.Add(parent);
+                parent = graph[parent];
+            }
+            path.Reverse();
+            return path;
+        }
+    }
+    private Graph graph;
+    private List<Transform> planStates = new List<Transform>();
     private bool enable = false;
     void Start() {
 
@@ -16,42 +51,7 @@ public class GlobalPlanner : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
-        if (enable && sortedQueue.Count > 0){
-            Vector3Int currentState = sortedQueue[0].Item2;
-            sortedQueue.RemoveAt(0);
 
-            if (currentState == goalStateDescrete){
-                enable = false;
-            }
-
-            List<Vector3Int> actions = GetActionSpace();
-            foreach (Vector3Int action in actions) {
-                Vector3Int nextState = currentState + action;
-                if (voxelMap.IsObstacle(nextState)){
-                    continue;
-                }
-
-                Vector3 pos = voxelMap.GetContinuousState(nextState);
-                Transform newObj = Instantiate(visitedObj, pos, Quaternion.identity, transform);
-                newObj.gameObject.name = action.ToString();
-
-                bool isVisited = visitedStates.ContainsKey(nextState);
-                float currentCost = visitedStates[currentState];
-                if (isVisited){
-                    float newCost = currentCost + GetActionCost(action);
-                    float prevCost = visitedStates[nextState];
-                    if (newCost < prevCost){
-                        visitedStates[nextState] = newCost;
-                    }
-                } else {
-                    float nextCost = currentCost + GetActionCost(action);
-                    visitedStates.Add(nextState, nextCost);
-                    float queueCost = nextCost + GetHeuristics(goalStateDescrete - nextState);
-                    Insert(queueCost, nextState); 
-                    newObj.gameObject.name += "; " + nextCost.ToString() + ", " + queueCost.ToString();
-                }
-            }
-        }
     }
     private void SetStartState(Vector3 v){
         startStateDescrete = voxelMap.GetDescreteState(v);
@@ -80,27 +80,28 @@ public class GlobalPlanner : MonoBehaviour {
                     return;
                 }
             }
-            // int id = FindLowerBound(cost, 0, sortedQueue.Count);
-            // sortedQueue.Insert(id, new Tuple<float, Vector3Int>(cost, v));
+            sortedQueue.Add(new Tuple<float, Vector3Int>(cost, v));
         }
     }
     private List<Vector3Int> GetActionSpace(){
         List<Vector3Int> actionSpace = new List<Vector3Int>();
         for (int x = -1; x <= 1; ++x)
-            for (int z = -1; z <= 1; ++z){
-                if ((x == 0) && (z == 0))
-                        continue;
-                actionSpace.Add(new Vector3Int(x, 0, z));
-            }
+            for (int y = 0; y <= 0; ++y)
+                for (int z = -1; z <= 1; ++z){
+                    if ((x == 0) && (z == 0) && (y == 0))
+                            continue;
+                    actionSpace.Add(new Vector3Int(x, y, z));
+                }
         return actionSpace;
     }
     private float GetActionCost(Vector3Int v){
-        return (v.y != 0) ? 2.0f : 1.0f;
+        // return (v.y != 0) ? 2.0f : 1.0f;
+        return v.magnitude;
     }
     private float GetHeuristics(Vector3Int v){
         return v.magnitude;
     }
-    public bool StartPlan(Vector3 start, Vector3 goal){
+    public List<Vector3Int> GetGlobalPlan(Vector3 start, Vector3 goal){
         startStateDescrete = voxelMap.GetDescreteState(start);
         goalStateDescrete = voxelMap.GetDescreteState(goal);
 
@@ -109,57 +110,108 @@ public class GlobalPlanner : MonoBehaviour {
         while (voxelMap.IsObstacle(goalStateDescrete))
             goalStateDescrete.y += 1;
 
-        Instantiate(startObj, voxelMap.GetContinuousState(startStateDescrete), Quaternion.identity, transform);
-        Instantiate(goalObj, voxelMap.GetContinuousState(goalStateDescrete), Quaternion.identity, transform);
-
         sortedQueue.Clear();
         visitedStates.Clear();
+        graph = new Graph(startStateDescrete);
         Insert(0, startStateDescrete);
         visitedStates.Add(startStateDescrete, 0);
 
-        // while (sortedQueue.Count > 0){
-        //     Vector3Int currentState = sortedQueue[0].Item2;
-        //     sortedQueue.RemoveAt(0);
+        while (sortedQueue.Count > 0){
+            Vector3Int currentState = sortedQueue[0].Item2;
+            sortedQueue.RemoveAt(0);
 
-        //     if (currentState == goalStateDescrete){
-        //         enable = false;
-        //         return true;
-        //     }
+            if (currentState == goalStateDescrete){
+                return graph.GetPlan(currentState);
+            }
 
-        //     List<Vector3Int> actions = GetActionSpace();
-        //     foreach (Vector3Int action in actions) {
-        //         Vector3Int nextState = currentState + action;
-        //         if (voxelMap.IsObstacle(nextState)){
-        //             continue;
-        //         }
+            List<Vector3Int> actions = GetActionSpace();
+            foreach (Vector3Int act in actions) {
+                Vector3Int action = act;
+                Vector3Int nextState = currentState + action;
+                if (voxelMap.IsObstacle(nextState)){
+                    visitedStates[nextState] = Mathf.Infinity;
 
-        //         bool isVisited = visitedStates.ContainsKey(nextState);
-        //         float currentCost = visitedStates[currentState];
-        //         if (isVisited){
-        //             float newCost = currentCost + GetActionCost(action);
-        //             float prevCost = visitedStates[nextState];
-        //             if (newCost < prevCost){
-        //                 visitedStates[nextState] = newCost;
-        //             }
-        //         } else {
-        //             float nextCost = currentCost + GetActionCost(action);
-        //             visitedStates.Add(nextState, nextCost);
-        //             float queueCost = nextCost + GetHeuristics(goalStateDescrete - nextState);
-        //             Insert(nextCost, nextState);                    
-        //         }
-        //     }
-        // }
-        enable = true;
-        return false;
-    }
+                    Vector3Int lifting = new Vector3Int(0, 1, 0);
+                    while (voxelMap.IsObstacle(nextState + lifting) && (Mathf.Abs(lifting.y) < UpDownTh)){
+                        visitedStates[nextState + lifting] = Mathf.Infinity;
+                        lifting.y += 1;
+                    }
+                    if (voxelMap.IsObstacle(nextState + lifting)){
+                        visitedStates[nextState] = Mathf.Infinity;
+                        continue;
+                    } else {
+                        if (Mathf.Abs(action.x) == Mathf.Abs(action.z)){
+                            continue;
+                        } else {
+                            action += lifting;
+                            nextState += lifting;
+                        }
+                    }
+                }
 
-    public void ShowPlan(){
-        // voxelMap.ShowMap();
-        Instantiate(startObj, voxelMap.GetContinuousState(startStateDescrete), Quaternion.identity, transform);
-        Instantiate(goalObj, voxelMap.GetContinuousState(goalStateDescrete), Quaternion.identity, transform);
-        foreach (var item in visitedStates){
-            Vector3 pos = voxelMap.GetContinuousState(item.Key);
-            Instantiate(visitedObj, pos, Quaternion.identity, transform);
+                Vector3Int descent = new Vector3Int(0, -1, 0);
+                while (!voxelMap.IsObstacle(nextState + descent) && (Mathf.Abs(descent.y) < UpDownTh)){
+                    descent.y -= 1;
+                }
+                if (voxelMap.IsObstacle(nextState + descent)){
+                    descent.y += 1;
+                    if (descent.y != 0 && (Mathf.Abs(action.x) == Mathf.Abs(action.z))){
+                        continue;
+                    } else {
+                        action += descent;
+                        nextState += descent;
+                    }
+                } else {
+                    continue;
+                }
+
+                bool isVisited = visitedStates.ContainsKey(nextState);
+                float currentCost = visitedStates[currentState];
+                if (isVisited){
+                    float newCost = currentCost + GetActionCost(action);
+                    float prevCost = visitedStates[nextState];
+                    if (newCost < prevCost){
+                        visitedStates[nextState] = newCost;
+                        graph.Append(nextState, currentState);
+                    }
+                } else {
+                    float nextCost = currentCost + GetActionCost(action);
+                    visitedStates.Add(nextState, nextCost);
+                    float queueCost = nextCost + GetHeuristics(goalStateDescrete - nextState);
+                    Insert(queueCost, nextState);
+                    graph.Append(nextState, currentState);
+                }
+            }
         }
+        return new List<Vector3Int>();
+    }
+    public void ShowPlan(List<Vector3> plan){
+        foreach (var item in planStates)
+            Destroy(item.gameObject);
+        planStates.Clear();
+        planStates.Add(Instantiate(startObj, voxelMap.GetContinuousState(startStateDescrete), Quaternion.identity, transform));
+        planStates.Add(Instantiate(goalObj, voxelMap.GetContinuousState(goalStateDescrete), Quaternion.identity, transform));
+        if (plan.Count > 0){
+            foreach (var pos in plan){
+                Transform newStateObj = Instantiate(visitedObj, pos, Quaternion.identity, transform);
+                planStates.Add(newStateObj);
+            }
+        } else {
+            foreach (var pos in visitedStates){
+                Transform newStateObj = Instantiate(visitedObj, voxelMap.GetContinuousState(pos.Key), Quaternion.identity, transform);
+                newStateObj.gameObject.name = pos.Key.ToString();
+                if (pos.Value == Mathf.Infinity)
+                    newStateObj.GetComponent<Renderer>().material.SetColor("_Color", Color.red);
+                planStates.Add(newStateObj);
+            }
+            // voxelMap.ShowMap();
+        }
+    }
+    public List<Vector3> ConvertPlanToCont(List<Vector3Int> plan){
+        List<Vector3> res = new List<Vector3>();
+        foreach (var item in plan){
+            res.Add(voxelMap.GetContinuousState(item));
+        }
+        return res;
     }
 }
