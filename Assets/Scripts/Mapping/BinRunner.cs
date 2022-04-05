@@ -90,9 +90,14 @@ public class BinRunner : MonoBehaviour {
                 ((int)Mathf.Round(unsignedGlobalPose.y/transform.localScale.y)) - 1,
                 ((int)Mathf.Round(unsignedGlobalPose.z/transform.localScale.z)) - 1
             );
-
-            if (isObstacle)
+            Debug.Log(globalMinCorner + "\n" + 
+                globalPose + "\n" +
+                unsignedGlobalPose + "\n" +
+                voxelCellPose);
+            if (isObstacle){
+                // Debug.Log(voxelCellPose);
                 voxelMap.SetObstacleCell(voxelCellPose, globalPose);
+            }
         }
     }
 }

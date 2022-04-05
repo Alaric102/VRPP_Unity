@@ -29,8 +29,12 @@ public class VoxelMap : MonoBehaviour
         minCorner_ = v;
         Debug.Log("New voxel min corner: " + minCorner_.x + ", " + minCorner_.y + ", " + minCorner_.z);
     }
+    public Vector3 GetMinCorner(){
+        return minCorner_;
+    }
     public void SetObstacleCell(Vector3Int vDiscrete, Vector3 vCont){
-        voxelMap[vDiscrete] = vCont;
+        if (!voxelMap.ContainsKey(vDiscrete))
+            voxelMap.Add(vDiscrete, vCont);
     }
     public void ShowMap(){
         if (obstacleCell == null){

@@ -97,20 +97,20 @@ public class Navigation : MonoBehaviour
     }
     void Update() {
         // Get next goal state
-        currentGoalPose = GetNextGlobalGoal(currentPose);
+    //     currentGoalPose = GetNextGlobalGoal(currentPose);
 
-        // Calculate direction to goal state from current state
-        Vector3 currentGoalDelta = currentGoalPose - currentPose;
-        Quaternion currentTargetRotation = GetLocalOrigin(currentGoalDelta);
-        Vector3 currentMeanPose = currentPose + currentTargetRotation*Vector3.up * displaysmentUp;
-    DrawLocalOrigin(currentMeanPose, currentTargetRotation, Color.gray);
+    //     // Calculate direction to goal state from current state
+    //     Vector3 currentGoalDelta = currentGoalPose - currentPose;
+    //     Quaternion currentTargetRotation = GetLocalOrigin(currentGoalDelta);
+    //     Vector3 currentMeanPose = currentPose + currentTargetRotation*Vector3.up * displaysmentUp;
+    // DrawLocalOrigin(currentMeanPose, currentTargetRotation, Color.gray);
 
-        // Predict next state
-        Vector3 delta = Vector3.ClampMagnitude(currentGoalDelta, maxStepLength*2.0f);
-        Vector3 nextPose = currentPose + delta;
-        Vector3 nextMeanPose  = nextPose + currentTargetRotation*Vector3.up * displaysmentUp;
-    Debug.DrawRay(currentMeanPose, delta, Color.red);
-    DrawLocalOrigin(nextMeanPose, currentTargetRotation, Color.red);
+    //     // Predict next state
+    //     Vector3 delta = Vector3.ClampMagnitude(currentGoalDelta, maxStepLength*2.0f);
+    //     Vector3 nextPose = currentPose + delta;
+    //     Vector3 nextMeanPose  = nextPose + currentTargetRotation*Vector3.up * displaysmentUp;
+    // Debug.DrawRay(currentMeanPose, delta, Color.red);
+    // DrawLocalOrigin(nextMeanPose, currentTargetRotation, Color.red);
 
         // // Calculate needed shift
         // Vector3 hShift = GetHorizonDisplacement(nextMeanPose, currentTargetRotation);

@@ -204,7 +204,6 @@ public class GlobalPlanner : MonoBehaviour {
                     newStateObj.GetComponent<Renderer>().material.SetColor("_Color", Color.red);
                 planStates.Add(newStateObj);
             }
-            // voxelMap.ShowMap();
         }
     }
     public List<Vector3> ConvertPlanToCont(List<Vector3Int> plan){

@@ -8,7 +8,7 @@ public class MappingMenu : MonoBehaviour
     private bool menuIsActive = true;
     private Vector2 trackpadVector = Vector2.zero;
     private int menuStatus = ((int)MenuStatus.NOTHING);
-    private GameObject makeMapPanel = null, saveMapPanel = null, resetPanel = null, currentMapPanel = null, addObstaclePanel = null;
+    private GameObject makeMapPanel = null, saveMapPanel = null, resetPanel = null, currentMapPanel = null, addObstaclePanel = null, ShowMapPanel = null;
     private bool isSettingObstacle = false, isSettingRotation = false;
     private VRUI vrui = null;
     private HelpBar helpBar = null;
@@ -16,6 +16,7 @@ public class MappingMenu : MonoBehaviour
         NOTHING,
         MAKE_MAP, 
         SAVE_MAP,
+        SHOW_MAP,
         ADD_OBSTACLE,
         BACK
     }
@@ -30,6 +31,7 @@ public class MappingMenu : MonoBehaviour
         saveMapPanel = transform.GetChild(1).gameObject;
         addObstaclePanel = transform.GetChild(2).gameObject;
         currentMapPanel = transform.GetChild(3).gameObject;
+        ShowMapPanel = transform.GetChild(4).gameObject;
         resetPanel = transform.GetChild(transform.childCount - 1).gameObject;
 
         ActiveController = transform.parent.parent.GetChild(1);
@@ -79,10 +81,16 @@ public class MappingMenu : MonoBehaviour
         if (length > 0.5f){
             if ( Mathf.Abs(angle) > 135.0f ){
                 menuStatus = ((int)MenuStatus.MAKE_MAP);
-            } else if (angle < -45.0f) {
-                menuStatus = ((int)MenuStatus.ADD_OBSTACLE);
-            } else if ( Mathf.Abs(angle) < 45.0f ){
+            } else if (angle > 45){
+                menuStatus = ((int)MenuStatus.NOTHING);
+            } else if (angle > 0.0f){
                 menuStatus = ((int)MenuStatus.SAVE_MAP);
+            } else if (angle > -45.0f){
+                menuStatus = ((int)MenuStatus.SHOW_MAP);
+            } else if (angle > -135.0f) {
+                menuStatus = ((int)MenuStatus.ADD_OBSTACLE);
+            } else {
+                menuStatus = ((int)MenuStatus.NOTHING);
             }
         } else if (length < 0.2f){
             menuStatus = ((int)MenuStatus.BACK);
@@ -93,6 +101,7 @@ public class MappingMenu : MonoBehaviour
         makeMapPanel.GetComponent<Image>().color = Color.white;
         saveMapPanel.GetComponent<Image>().color = Color.white;    
         addObstaclePanel.GetComponent<Image>().color = Color.white;
+        ShowMapPanel.GetComponent<Image>().color = Color.white;
         resetPanel.GetComponent<Image>().color = Color.white;
         // Switch color for selected menu option
         switch (menuStatus) {
@@ -107,6 +116,9 @@ public class MappingMenu : MonoBehaviour
                 break;
             case ((int)MenuStatus.BACK):
                 resetPanel.GetComponent<Image>().color = Color.green;
+                break;
+            case ((int)MenuStatus.SHOW_MAP):
+                ShowMapPanel.GetComponent<Image>().color = Color.green;
                 break;
             default:
                 break;
@@ -167,6 +179,9 @@ public class MappingMenu : MonoBehaviour
                 break;
             case ((int)MenuStatus.BACK):
                 vrui.SetActiveMainMenu();
+                break;
+            case ((int)MenuStatus.SHOW_MAP):
+                mapper.ShowMap();
                 break;
             default:
                 break;

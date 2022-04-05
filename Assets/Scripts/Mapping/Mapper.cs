@@ -16,7 +16,7 @@ public class Mapper : MonoBehaviour
 
     // Private declarations
     private Transform boundary = null, gridRunner = null, obstacleState = null;
-    private Tuple<Vector3, Vector3> corners = new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero);
+    private Vector3 minCorner_ = Vector3.zero, maxCorner_ = Vector3.zero;
     private VoxelMap voxelMap;
     private float mappingDuration = 0.0f;
     private bool isMapping = false;
@@ -33,8 +33,11 @@ public class Mapper : MonoBehaviour
     }
     public Navigation navigation;
     void Start(){
-        if (!voxelMap.LoadVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt"))
+        if (!voxelMap.LoadVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt")){
             MakeMap();
+        } else {
+            minCorner_ = voxelMap.GetMinCorner();
+        }
     }
     void Update() {
         if (isMapping){
@@ -43,7 +46,7 @@ public class Mapper : MonoBehaviour
             } else {
                 Debug.Log("MappingDuration: " + mappingDuration.ToString());
                 isMapping = false;
-                navigation.StartPlanning();
+                // navigation.StartPlanning();
             }
         }
     }
@@ -114,7 +117,8 @@ public class Mapper : MonoBehaviour
     }
     public bool MakeMap(){ // Create full map in boundary box
         CleanMap();
-        corners = DefineMinMaxCorners(boundary.transform);
+        Tuple<Vector3, Vector3> corners = DefineMinMaxCorners(boundary.transform);
+        minCorner_ = corners.Item1;
         Vector3 chunkSize = GetChunkSize(corners.Item1, corners.Item2);
 
         if (chunkSize == Vector3.zero){
@@ -146,7 +150,7 @@ public class Mapper : MonoBehaviour
         return GenerateChunks(corners.Item1, corners.Item2, chunkSize);
     }
     public Vector3 GetMinCorner(){
-        return corners.Item1;
+        return minCorner_;
     }
     public Transform GetObstacleState(){ // Get activated obstacle transform with disabled collider
         obstacleState.gameObject.SetActive(true);
@@ -208,6 +212,10 @@ public class Mapper : MonoBehaviour
     public void SaveMap(){
         // SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VRPP_ROS/launch" + "/map.png");
         voxelMap.SaveVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt");
+    }
+    public void ShowMap(){
+        // SaveTextureAsPNG(mapImage, "D:/catkin_ws/src/VRPP_ROS/launch" + "/map.png");
+        voxelMap.ShowMap();
     }
     // private static void SaveTextureAsPNG(Texture2D _texture, string _fullPath)
     // {
