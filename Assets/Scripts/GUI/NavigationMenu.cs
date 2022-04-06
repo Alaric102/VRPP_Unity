@@ -10,7 +10,7 @@ public class NavigationMenu : MonoBehaviour {
     private Vector2 trackpadVector = Vector2.zero;
     private int menuStatus = ((int)MenuStatus.NOTHING);
     private bool isSettingStartState = false, isSettingGoalState = false, isSettingRotation = false;
-    private bool isEditingPath = false;
+    private bool isEditingPath = false, isMovingPathState = false;
     private GameObject setStartStatePanel = null, setGoalStatePanel = null, startPlanningPanel = null, editPathPanel = null, resetPanel = null;
     private VRUI vrui = null;
     private HelpBar helpBar = null;
@@ -24,8 +24,12 @@ public class NavigationMenu : MonoBehaviour {
         BACK
     } 
     [Header("External modules")]
-    public GameObject ActiveController;
+    private Transform ActiveController;
     public Navigation navigation = null;
+    public Transform editRegionPrefab;
+    private Transform editRegion;
+    private int movingPoseID = -1;
+    private Vector3 newPoseState = Vector3.zero;
     void Awake() {
         // find child objects of VR GUI
         setStartStatePanel = transform.GetChild(0).gameObject;
@@ -37,7 +41,10 @@ public class NavigationMenu : MonoBehaviour {
         vrui = transform.parent.GetComponent<VRUI>();
         helpBar = transform.parent.GetChild(transform.parent.childCount - 1).GetComponent<HelpBar>();
 
+        ActiveController = transform.parent.parent.GetChild(1);
         lineRenderer = gameObject.GetComponent<LineRenderer>();
+        editRegion = Instantiate(editRegionPrefab, Vector3.zero, Quaternion.identity);
+        editRegion.gameObject.SetActive(false);
     }
     void Start(){
         // Set default values
@@ -47,7 +54,7 @@ public class NavigationMenu : MonoBehaviour {
     void Update() {
         lineRenderer.positionCount = 0;
         // show menu if menu is active and not setting start/goal states or editting path/obstacles
-        if (menuIsActive && !(isSettingStartState || isSettingGoalState)){
+        if (menuIsActive && !(isSettingStartState || isSettingGoalState || isEditingPath)){
             ShowMenu(true);
             GetMenuStatus(trackpadVector);
             HighlightSelected();
@@ -87,15 +94,37 @@ public class NavigationMenu : MonoBehaviour {
         }
         // Process editting path states
         if (isEditingPath){
-
+            Vector3 directionRay = GetPosition();
+            List<Vector3> globalPlan = navigation.GetGlobalPlan();
+            if (globalPlan.Count == 0)
+                isEditingPath = false;
+            editRegion.gameObject.SetActive(true);
+            if (isMovingPathState){
+                newPoseState = directionRay;
+                editRegion.position = newPoseState;
+            } else {
+                float minDistance = float.MaxValue;
+                for (int id = 0; id < globalPlan.Count; ++id) {
+                    if ((globalPlan[id] - directionRay).magnitude < minDistance && (globalPlan[id] - directionRay).magnitude < 0.3f){
+                        minDistance = (globalPlan[id] - directionRay).magnitude;
+                        movingPoseID = id;
+                    }
+                }
+                if (movingPoseID >= 0)
+                    editRegion.position = globalPlan[movingPoseID];
+            }
+        } else {
+            editRegion.gameObject.SetActive(false);
         }
     }
-    private void ShowMenu(bool isShow){
+    private void ShowMenu(bool isShow){ // Show menu's objects if isShow, otherwise hide
         setStartStatePanel.SetActive(isShow);
         setGoalStatePanel.SetActive(isShow);
         startPlanningPanel.SetActive(isShow);
         editPathPanel.SetActive(isShow);
         resetPanel.SetActive(isShow);
+
+        // editRegion.gameObject.SetActive(isShow);
     }
     private int GetMenuStatus(Vector2 axis){
         float angle = Vector2.Angle(Vector2.right, axis) * Mathf.Sign(axis.y);
@@ -227,6 +256,15 @@ public class NavigationMenu : MonoBehaviour {
                 isSettingRotation = false;
             } else {
                 isSettingRotation = true;
+            }
+        }
+        if (isEditingPath){
+            if (isMovingPathState){
+                isMovingPathState = false;
+                isEditingPath = false;
+                navigation.Replan(newPoseState, movingPoseID);
+            } else {
+                isMovingPathState = true;
             }
         }
     }

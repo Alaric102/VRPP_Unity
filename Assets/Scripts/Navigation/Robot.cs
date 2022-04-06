@@ -3,33 +3,30 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Robot : MonoBehaviour
-{
-    // Common parameters
+public class Robot : MonoBehaviour {
+    [Header("Common parameters")]
     private Transform body;
     private float lengthJoint1, lengthJoint2, lengthJoint3;
+    public float discretization = 0.5f;
     public List<float> maxAngles = new List<float>{90.0f, 180.0f, 180.0f};
     public List<float> minAngles = new List<float>{-90.0f, -180.0f, -180.0f};
     private float minDistance = 0.1053526f, maxDistance = 0.3111828f;
-    // FL leg variables
+    
+    [Header("FL leg variables")]
     private Transform FLjoint1, FLjoint2, FLjoint3, FLEndEffector;
     public List<float> FLAngles = new List<float>{0.0f, 0.0f, 0.0f};
-    public Vector3 relativeFLPosition = Vector3.zero;
-    // FR leg variables
+    
+    [Header("FR leg variables")]
     private Transform FRjoint1, FRjoint2, FRjoint3, FREndEffector;
     public List<float> FRAngles = new List<float>{0.0f, 0.0f, 0.0f};
-    public Vector3 relativeFRPosition = Vector3.zero;
-    // RL leg variables
+    
+    [Header("RL leg variables")]
     private Transform RLjoint1, RLjoint2, RLjoint3, RLEndEffector;
     public List<float> RLAngles = new List<float>{0.0f, 0.0f, 0.0f};
-    public Vector3 relativeRLPosition = Vector3.zero;
-    // RR leg variables
+    
+    [Header("RR leg variables")]
     private Transform RRjoint1, RRjoint2, RRjoint3, RREndEffector;
     public List<float> RRAngles = new List<float>{0.0f, 0.0f, 0.0f};
-    private Vector3 lastFLPose = Vector3.zero; 
-    private Vector3 lastFRPose = Vector3.zero; 
-    private Vector3 lastRLPose = Vector3.zero; 
-    private Vector3 lastRRPose = Vector3.zero; 
     void Awake() {
         body = transform.GetChild(0);
         // Define FL joints
@@ -135,22 +132,22 @@ public class Robot : MonoBehaviour
     }
     private List<float> ResolveInverseKinematicsFL(Vector3 pos){
         Debug.DrawRay(FLjoint1.position, transform.TransformVector(pos), Color.yellow);
-        Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
+        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
         return new List<float> { GetJoint1Angle_LeftLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
     }
     private List<float> ResolveInverseKinematicsFR(Vector3 pos){
         Debug.DrawRay(FRjoint1.position, transform.TransformVector(pos), Color.yellow);
-        Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
+        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
         return new List<float> { GetJoint1Angle_RightLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
     }
     private List<float> ResolveInverseKinematicsRL(Vector3 pos){
         Debug.DrawRay(RLjoint1.position, transform.TransformVector(pos), Color.yellow);
-        Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
+        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
         return new List<float> { GetJoint1Angle_LeftLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
     }
     private List<float> ResolveInverseKinematicsRR(Vector3 pos){
         Debug.DrawRay(RRjoint1.position, transform.TransformVector(pos), Color.yellow);
-        Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
+        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
         return new List<float> { GetJoint1Angle_RightLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
     }
     private void ApplyFLAngles(List<float> angles){
@@ -173,95 +170,144 @@ public class Robot : MonoBehaviour
         RRjoint2.localRotation = Quaternion.Euler(0, angles[1], 0);
         RRjoint3.localRotation = Quaternion.Euler(0, angles[2], 0);
     }
-    private Vector3 FindStableFoot(Vector3 stepDirection, Transform joint2){
-        RaycastHit hitHeap;
-        if (Physics.Raycast(joint2.position, -Vector3.up, out hitHeap, Mathf.Infinity, ~0)){
-            Vector3 direction = hitHeap.point + stepDirection - joint2.position;
-            if (Physics.Raycast(joint2.position, direction, out hitHeap, Mathf.Infinity, ~0)){
+    private Tuple<float, Vector3> GetLegMinima(Vector3 pos, Quaternion rot){
+        List<Vector3> rayDirections = new List<Vector3>();
+        for (float latitude = 0.0f; latitude < 2.0f * Mathf.PI; latitude += discretization){
+            for (float longitude = 0.0f; longitude < Mathf.PI; longitude += discretization){
+                Quaternion yRotation = Quaternion.Euler(Mathf.Rad2Deg * longitude, Mathf.Rad2Deg * latitude, 0.0f);
+                rayDirections.Add(yRotation * Vector3.forward * (lengthJoint2 + lengthJoint3) );
             }
         }
-        for(int i = 0; i < 100 && Vector3.Angle(Vector3.up, hitHeap.normal) > 45.0f;){
-            stepDirection -= stepDirection*0.1f;
-            if (Physics.Raycast(joint2.position, -Vector3.up, out hitHeap, Mathf.Infinity, ~0)){
-                Vector3 direction = hitHeap.point + stepDirection - joint2.position;
-                if (Physics.Raycast(joint2.position, direction, out hitHeap, Mathf.Infinity, ~0)){}
+        
+        List<Tuple<Vector3, Vector3>> rayHitData = new List<Tuple<Vector3, Vector3>>(rayDirections.Count);
+        foreach (Vector3 dir in rayDirections) {
+            RaycastHit hit;
+            // Debug.DrawRay(pos, dir, Color.gray);
+            if (Physics.Raycast(pos, dir, out hit, dir.magnitude, ~0)){
+                Vector3 delta = hit.point - pos;
+                rayHitData.Add( new Tuple<Vector3, Vector3>(delta, hit.normal) );
+            } else {
+                rayHitData.Add( new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero) );
             }
         }
-        Debug.DrawLine(joint2.position, hitHeap.point, Color.gray);
-        Debug.DrawRay(hitHeap.point, hitHeap.normal*0.1f, Color.gray);
-        return hitHeap.point;
+        
+        Tuple<float, Vector3> minDelta = new Tuple<float, Vector3>(float.MaxValue, Vector3.zero);
+        foreach (var rayItem in rayHitData){
+            if (rayItem.Item1 == Vector3.zero)
+                continue;
+            if (Mathf.Abs(Vector3.Angle(Vector3.up, rayItem.Item2)) > 45.0f)
+                continue;
+            if (rayItem.Item1.magnitude < minDelta.Item1)
+                minDelta = new Tuple<float, Vector3>(rayItem.Item1.magnitude, rayItem.Item1);
+        }
+        return minDelta;
     }
-    public void GetStableFoot(Vector3 stepDirection, int stepNumber){
-        Vector3 footPoseFL = FindStableFoot(stepDirection - ((stepNumber + 0) % 4) / 2.0f * stepDirection, FLjoint2);
-        Vector3 footPoseFR = FindStableFoot(stepDirection - ((stepNumber + 2) % 4) / 2.0f * stepDirection, FRjoint2);
-        Vector3 footPoseRL = FindStableFoot(stepDirection - ((stepNumber + 3) % 4) / 2.0f * stepDirection, RLjoint2);
-        Vector3 footPoseRR = FindStableFoot(stepDirection - ((stepNumber + 1) % 4) / 2.0f * stepDirection, RRjoint2);
+    public Vector3 GetDisplacementByLeg(){
+        Vector3 shift = Vector3.zero;
+        Tuple<float, Vector3> FLdelta = GetLegMinima(FLjoint2.position, FLjoint2.rotation);
+        Tuple<float, Vector3> FRdelta = GetLegMinima(FRjoint2.position, FRjoint2.rotation);
+        Tuple<float, Vector3> RLdelta = GetLegMinima(RLjoint2.position, RLjoint2.rotation);
+        Tuple<float, Vector3> RRdelta = GetLegMinima(RRjoint2.position, RRjoint2.rotation);
+        
+        Tuple<float, Vector3> maxDelta = RRdelta;
+        if (FLdelta.Item1 > FRdelta.Item1 && FLdelta.Item1 > RLdelta.Item1 && FLdelta.Item1 > RRdelta.Item1)
+            maxDelta = FLdelta;
+        else if (FRdelta.Item1 > FLdelta.Item1 && FRdelta.Item1 > RLdelta.Item1 && FRdelta.Item1 > RRdelta.Item1)
+            maxDelta = FRdelta;
+        else if (RLdelta.Item1 > FLdelta.Item1 && RLdelta.Item1 > FRdelta.Item1 && RLdelta.Item1 > RRdelta.Item1)
+            maxDelta = RLdelta;
+        shift = Vector3.ProjectOnPlane( maxDelta.Item2, Vector3.up);
+        return shift;
+    }
+    public Vector3 GetBodyHeightByLeg(float meanHeight = 0.26f){
+        Vector3 shift = Vector3.zero;
+        Tuple<float, Vector3> FLdelta = GetLegMinima(FLjoint2.position, FLjoint2.rotation);
+        Tuple<float, Vector3> FRdelta = GetLegMinima(FRjoint2.position, FRjoint2.rotation);
+        Tuple<float, Vector3> RLdelta = GetLegMinima(RLjoint2.position, RLjoint2.rotation);
+        Tuple<float, Vector3> RRdelta = GetLegMinima(RRjoint2.position, RRjoint2.rotation);
+        
+        // Debug.DrawRay(FLjoint2.position, FLdelta.Item2, Color.blue);
+        // Debug.DrawRay(FRjoint2.position, FRdelta.Item2, Color.blue);
+        // Debug.DrawRay(RLjoint2.position, RLdelta.Item2, Color.blue);
+        // Debug.DrawRay(RRjoint2.position, RRdelta.Item2, Color.blue);
 
-        Vector3 pos = transform.InverseTransformVector(footPoseFL - FLjoint1.position);
+        Vector3 FLeanPose = (meanHeight - FLdelta.Item2.magnitude) * Vector3.up;
+        Vector3 FReanPose = (meanHeight - FRdelta.Item2.magnitude) * Vector3.up;
+        Vector3 RLeanPose = (meanHeight - RLdelta.Item2.magnitude) * Vector3.up;
+        Vector3 RReanPose = (meanHeight - RRdelta.Item2.magnitude) * Vector3.up;
+
+        // Debug.DrawRay(FLjoint2.position + FLdelta.Item2, FLeanPose, Color.black);
+        // Debug.DrawRay(FRjoint2.position + FRdelta.Item2, FReanPose, Color.black);
+        // Debug.DrawRay(RLjoint2.position + RLdelta.Item2, RLeanPose, Color.black);
+        // Debug.DrawRay(RRjoint2.position + RRdelta.Item2, RReanPose, Color.black);
+
+        Tuple<float, Vector3> bodyDelta = GetLegMinima(body.position, RRjoint2.rotation);
+        Debug.DrawRay(transform.position, bodyDelta.Item2, Color.yellow);
+        shift = ((FLjoint2.position + FLdelta.Item2 + FLeanPose) + 
+            (FRjoint2.position + FRdelta.Item2 + FReanPose) + 
+            (RLjoint2.position + RLdelta.Item2 + RLeanPose) + 
+            (RRjoint2.position + RRdelta.Item2 + RReanPose))/4.0f - transform.position;
+            
+        Debug.DrawRay(transform.position, shift, Color.green);
+        return shift;
+    }
+    public void PlaceFoot(){
+        Tuple<float, Vector3> FLdelta = GetLegMinima(FLjoint2.position, FLjoint2.rotation);
+        Tuple<float, Vector3> FRdelta = GetLegMinima(FRjoint2.position, FRjoint2.rotation);
+        Tuple<float, Vector3> RLdelta = GetLegMinima(RLjoint2.position, RLjoint2.rotation);
+        Tuple<float, Vector3> RRdelta = GetLegMinima(RRjoint2.position, RRjoint2.rotation);
+
+        Vector3 FLDirection = FLdelta.Item2 + FLjoint2.position - FLjoint1.position;
+        Vector3 FRDirection = FRdelta.Item2 + FRjoint2.position - FRjoint1.position;
+        Vector3 RLDirection = RLdelta.Item2 + RLjoint2.position - RLjoint1.position;
+        Vector3 RRDirection = RRdelta.Item2 + RRjoint2.position - RRjoint1.position;
+        
+        Vector3 pos = transform.InverseTransformVector(FLDirection);
         ApplyFLAngles(ResolveInverseKinematicsFL(pos));
-        
-        pos = transform.InverseTransformVector(footPoseFR - FRjoint1.position);
-        ApplyFRAngles(ResolveInverseKinematicsFR(pos));
-        
-        pos = transform.InverseTransformVector(footPoseRL - RLjoint1.position);
+        pos = transform.InverseTransformVector(FRDirection);
+        ApplyFRAngles(ResolveInverseKinematicsFR(pos));       
+        pos = transform.InverseTransformVector(RLDirection);
         ApplyRLAngles(ResolveInverseKinematicsRL(pos));
-        
-        pos = transform.InverseTransformVector(footPoseRR - RRjoint1.position);
+        pos = transform.InverseTransformVector(RRDirection);
         ApplyRRAngles(ResolveInverseKinematicsRR(pos));
+    }
+    
+    // private Vector3 GetBodyDisplacements(Quaternion rot){
+        // Vector3 res = Vector3.zero;
 
-    }
-    public Quaternion GetSurfaceNorm(){
-        RaycastHit hitFLHeap, hitFRHeap, hitRLHeap, hitRRHeap;
-        if (Physics.Raycast(FLjoint2.position, -transform.up, out hitFLHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(FLjoint2.position, hitFLHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(FLjoint2.position, transform.up*0.15f, Color.green);
-        }
-        if (Physics.Raycast(FRjoint2.position, -transform.up, out hitFRHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(FRjoint2.position, hitFRHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(FRjoint2.position, transform.up*0.15f, Color.green);
-        }
-        if (Physics.Raycast(RLjoint2.position, -transform.up, out hitRLHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(RLjoint2.position, hitRLHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(RLjoint2.position, transform.up*0.15f, Color.green);
-        }
-        if (Physics.Raycast(RRjoint2.position, -transform.up, out hitRRHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(RRjoint2.position, hitRRHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(RRjoint2.position, transform.up*0.15f, Color.green);
-        }
-        float angle = Vector3.SignedAngle(transform.up, hitFLHeap.normal, transform.right);
-        angle += Vector3.SignedAngle(transform.up, hitFRHeap.normal, transform.right);
-        angle += Vector3.SignedAngle(transform.up, hitRLHeap.normal, transform.right);
-        angle += Vector3.SignedAngle(transform.up, hitRRHeap.normal, transform.right);
-        angle /= 4.0f;
-        return Quaternion.Euler(angle, 0.0f, 0.0f);
-    }
-    public Vector3 GetSurfaceShift(float meanPose){
-        RaycastHit hitFLHeap, hitFRHeap, hitRLHeap, hitRRHeap, hitBody;
-        if (Physics.Raycast(body.position, -transform.up, out hitBody, Mathf.Infinity, ~0)){
-            Debug.DrawRay(body.position, hitBody.normal*0.15f, Color.yellow);
-            Debug.DrawRay(body.position, transform.up*0.15f, Color.green);
-        }
-        if (Physics.Raycast(FLjoint2.position, -transform.up, out hitFLHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(FLjoint2.position, hitFLHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(FLjoint2.position, transform.up*0.15f, Color.green);
-        }
-        if (Physics.Raycast(FRjoint2.position, -transform.up, out hitFRHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(FRjoint2.position, hitFRHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(FRjoint2.position, transform.up*0.15f, Color.green);
-        }
-        if (Physics.Raycast(RLjoint2.position, -transform.up, out hitRLHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(RLjoint2.position, hitRLHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(RLjoint2.position, transform.up*0.15f, Color.green);
-        }
-        if (Physics.Raycast(RRjoint2.position, -transform.up, out hitRRHeap, Mathf.Infinity, ~0)){
-            Debug.DrawRay(RRjoint2.position, hitRRHeap.normal*0.15f, Color.yellow);
-            Debug.DrawRay(RRjoint2.position, transform.up*0.15f, Color.green);
-        }
-        Vector3 res = Vector3.zero;
-        res += Vector3.down * ((hitFLHeap.point - FLjoint2.position).magnitude - meanPose);
-        res += Vector3.down * ((hitFRHeap.point - FRjoint2.position).magnitude - meanPose);
-        res += Vector3.down * ((hitRLHeap.point - RLjoint2.position).magnitude - meanPose);
-        res += Vector3.down * ((hitRRHeap.point - RRjoint2.position).magnitude - meanPose);
-        return res / 4.0f;
-    }
+        // List<Vector3> rayDirections = new List<Vector3>();
+        // for (float angle = 0.0f; angle < 2.0f * Mathf.PI; angle += discretization){
+        //     Quaternion yRotation = Quaternion.Euler(0.0f, Mathf.Rad2Deg * angle, 0.0f);
+        //     rayDirections.Add(rot * yRotation * Vector3.forward * 0.3f);
+        // }
+
+        // List<Tuple<Vector3, Vector3>> rayHitData = new List<Tuple<Vector3, Vector3>>(rayDirections.Count);
+        // foreach (Vector3 dir in rayDirections) {
+        //     // Debug.DrawRay(pos, dir, Color.gray);
+        //     RaycastHit hit;
+        //     if (Physics.Raycast(pos, dir, out hit, dir.magnitude, ~0)){
+        //         rayHitData.Add( new Tuple<Vector3, Vector3>(hit.point, hit.normal) );
+        //     } else {
+        //         rayHitData.Add( new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero) );
+        //     }
+        // }
+
+    //     List<Vector3> nonZeroDisplacements = new List<Vector3>();
+    //     for (int id = 0; id < rayDirections.Count; ++id){
+    //         Vector3 hitPoint = rayHitData[id].Item1;
+    //         Vector3 hitNormal = rayHitData[id].Item2;
+    //         Vector3 displacement = hitNormal * Mathf.Abs((pos - hitPoint).magnitude - rayDirections[id].magnitude);
+    //         Debug.DrawRay(hitPoint, displacement, Color.white);
+    //         if (displacement != Vector3.zero){
+    //             nonZeroDisplacements.Add(displacement);
+    //         }
+    //     }
+
+    //     if (nonZeroDisplacements.Count > 0){
+    //         foreach (Vector3 v in nonZeroDisplacements)
+    //             res += v;
+    //         res /= nonZeroDisplacements.Count;
+    //     }
+        // return res;
+    // }
 }

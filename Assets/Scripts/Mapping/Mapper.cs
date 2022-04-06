@@ -38,6 +38,7 @@ public class Mapper : MonoBehaviour
         } else {
             minCorner_ = voxelMap.GetMinCorner();
         }
+        navigation.StartPlanning();
     }
     void Update() {
         if (isMapping){

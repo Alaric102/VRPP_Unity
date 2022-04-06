@@ -48,6 +48,7 @@
      <Compile Include="Assets\RosSharp\Scripts\Urdf\UrdfComponents\UrdfJoints\UrdfJointPlanar.cs" />
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\MessageHandling\JointStatePatcher.cs" />
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\MessageHandling\JoyButtonReader.cs" />
+     <Compile Include="Assets\Scripts\Navigation\GlobalPlanner.cs" />
      <Compile Include="Assets\RosSharp\Scripts\Urdf\UrdfComponents\UrdfJoints\UrdfJointPrismatic.cs" />
      <Compile Include="Assets\RosSharp\Scripts\Urdf\UrdfComponents\UrdfJoints\UrdfJointFixed.cs" />
      <Compile Include="Assets\RosSharp\Scripts\Urdf\UrdfComponents\UrdfVisual.cs" />
@@ -109,7 +110,7 @@
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\RosCommuncation\UnityFibonacciActionClient.cs" />
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\RosCommuncation\GetParamServiceProvider.cs" />
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\MessageHandling\LaserScanReader.cs" />
-     <Compile Include="Assets\Scripts\Navigation\GlobalPlanner.cs" />
+     <Compile Include="Assets\Scripts\Navigation\LocalPlanner.cs" />
      <None Include="Assets\RosSharp\Plugins\Microsoft\System.Threading.Tasks.Extensions.xml" />
      <None Include="Assets\RosSharp\Plugins\External\websocket-sharp.xml" />
      <None Include="Assets\RosSharp\Plugins\External\Newtonsoft.Json.Bson.xml" />

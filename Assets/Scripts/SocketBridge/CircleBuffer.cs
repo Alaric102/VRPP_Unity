@@ -114,7 +114,7 @@ public class CircleBuffer : MonoBehaviour
                 } 
                 case (((int)ROSCommands.requestedPose)):{
                     Vector3 v = new Vector3(GetFloat(), GetFloat(), GetFloat());
-                    navigation.CheckStateCollision(v);
+                    // navigation.CheckStateCollision(v);
                     break;
                 } default: {
                     break;

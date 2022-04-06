@@ -8,7 +8,7 @@ public class MappingMenu : MonoBehaviour
     private bool menuIsActive = true;
     private Vector2 trackpadVector = Vector2.zero;
     private int menuStatus = ((int)MenuStatus.NOTHING);
-    private GameObject makeMapPanel = null, saveMapPanel = null, resetPanel = null, currentMapPanel = null, addObstaclePanel = null, ShowMapPanel = null;
+    private GameObject makeMapPanel = null, saveMapPanel = null, resetPanel = null, currentMapPanel = null, addObstaclePanel = null, showMapPanel = null;
     private bool isSettingObstacle = false, isSettingRotation = false;
     private VRUI vrui = null;
     private HelpBar helpBar = null;
@@ -31,7 +31,7 @@ public class MappingMenu : MonoBehaviour
         saveMapPanel = transform.GetChild(1).gameObject;
         addObstaclePanel = transform.GetChild(2).gameObject;
         currentMapPanel = transform.GetChild(3).gameObject;
-        ShowMapPanel = transform.GetChild(4).gameObject;
+        showMapPanel = transform.GetChild(4).gameObject;
         resetPanel = transform.GetChild(transform.childCount - 1).gameObject;
 
         ActiveController = transform.parent.parent.GetChild(1);
@@ -70,6 +70,7 @@ public class MappingMenu : MonoBehaviour
         saveMapPanel.SetActive(isShow);
         currentMapPanel.SetActive(isShow);
         addObstaclePanel.SetActive(isShow);
+        showMapPanel.SetActive(isShow);
         currentMapPanel.SetActive(isShow);
         resetPanel.SetActive(isShow);
     }
@@ -101,7 +102,7 @@ public class MappingMenu : MonoBehaviour
         makeMapPanel.GetComponent<Image>().color = Color.white;
         saveMapPanel.GetComponent<Image>().color = Color.white;    
         addObstaclePanel.GetComponent<Image>().color = Color.white;
-        ShowMapPanel.GetComponent<Image>().color = Color.white;
+        showMapPanel.GetComponent<Image>().color = Color.white;
         resetPanel.GetComponent<Image>().color = Color.white;
         // Switch color for selected menu option
         switch (menuStatus) {
@@ -118,7 +119,7 @@ public class MappingMenu : MonoBehaviour
                 resetPanel.GetComponent<Image>().color = Color.green;
                 break;
             case ((int)MenuStatus.SHOW_MAP):
-                ShowMapPanel.GetComponent<Image>().color = Color.green;
+                showMapPanel.GetComponent<Image>().color = Color.green;
                 break;
             default:
                 break;
