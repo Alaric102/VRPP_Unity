@@ -9,6 +9,7 @@ public class LocalPlanner : MonoBehaviour
     private List<Vector3> globalPath = new List<Vector3>();
     public float maxStepLength = 0.16f;
     private Vector3 currentState = Vector3.zero;
+    private GlobalPlanner gPlanner = null;
     private void ClearStates(){
         foreach (var state in globalStates)
             Destroy(state.gameObject);
@@ -31,29 +32,39 @@ public class LocalPlanner : MonoBehaviour
         Quaternion c = Quaternion.FromToRotation(b * a * transform.up, deltaUp);
         return c * b * a;
     }
-    public void SetGlobalPath(List<Vector3> path){
+    public bool SetGlobalPath(List<Vector3> path){
+        gPlanner = transform.GetComponent<GlobalPlanner>();
         ClearStates();
         globalPath = path;
-        
+        globalPath[globalPath.Count - 1] += Vector3.up * 0.22f;
         for (int i = globalPath.Count - 2; i >= 0; i--) {
+            Vector3 originPose = globalPath[i];
             Transform newState = Instantiate(runnerState, globalPath[i], GetDeltaAlignedOrigin(globalPath[i + 1] - globalPath[i]), transform);
             globalStates.Add(newState);
 
             Robot newRobot = newState.GetComponent<Robot>();
-            Vector3 horizonShift = newRobot.GetDisplacementByLeg();
-            Debug.DrawRay(globalPath[i], horizonShift, Color.gray);
-
-            newState.position += horizonShift;
-            globalPath[i] += horizonShift;
-            newState.rotation = GetDeltaAlignedOrigin(globalPath[i + 1] - globalPath[i]);
+            for (int n = 0; n < 5; ++n){
+                Vector3 horizonShift = newRobot.GetDisplacementByLeg();
+                Debug.DrawRay(globalPath[i], horizonShift, Color.green);
+                newState.position += horizonShift;
+                globalPath[i] += horizonShift;
+                newState.rotation = GetDeltaAlignedOrigin(globalPath[i + 1] - globalPath[i]);
+            }
             
             Vector3 vertBodyShift = newRobot.GetBodyHeightByLeg();
+            Debug.DrawRay(globalPath[i], vertBodyShift, Color.green);
             newState.position += vertBodyShift;
             globalPath[i] += vertBodyShift;
             newState.rotation = GetDeltaAlignedOrigin(globalPath[i + 1] - globalPath[i]);
 
-            newRobot.PlaceFoot();
+            bool isFine = newRobot.PlaceFoot();
+            if (isFine)
+                newState.gameObject.SetActive(false);
+            else{
+                gPlanner.SetWieght(gPlanner.GetDescrete(originPose), 10.0f);
+            }
         }
+        return true;
 
     }
     private Vector3 GetDelta(Vector3 pose){
@@ -67,7 +78,6 @@ public class LocalPlanner : MonoBehaviour
         }
     }
     void Awake() {
-        
     }
     void Start() {
         

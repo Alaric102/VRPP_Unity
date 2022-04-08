@@ -11,11 +11,13 @@ public class VoxelMap : MonoBehaviour
     public Transform obstacleCell = null;
     private Vector3 gridSize_, minCorner_;
     private Dictionary<Vector3Int, Vector3> voxelMap = new Dictionary<Vector3Int, Vector3>(0);
+    private Dictionary<Vector3Int, float> weightMap = new Dictionary<Vector3Int, float>(0);
     void Awake() {
     }
     public void SetMapSize(Vector3Int v){
         mapSize_ = v;
         voxelMap = new Dictionary<Vector3Int, Vector3>(mapSize_.x * mapSize_.y * mapSize_.z);
+        weightMap = new Dictionary<Vector3Int, float>(mapSize_.x * mapSize_.y * mapSize_.z);
         Debug.Log("New voxel size: " + mapSize_);
     }
     public void SetGridSize(Vector3 v){
@@ -35,6 +37,20 @@ public class VoxelMap : MonoBehaviour
     public void SetObstacleCell(Vector3Int vDiscrete, Vector3 vCont){
         if (!voxelMap.ContainsKey(vDiscrete))
             voxelMap.Add(vDiscrete, vCont);
+        if (!weightMap.ContainsKey(vDiscrete))
+            weightMap.Add(vDiscrete, Mathf.Infinity);
+    }
+    public void SetWeight(Vector3Int vD, float cost){
+        if (weightMap.ContainsKey(vD))
+            weightMap[vD] += cost;
+        else 
+            weightMap.Add(vD, cost);
+    }
+    public float GetWeigth(Vector3Int vD){
+        if (weightMap.ContainsKey(vD))
+            return weightMap[vD];
+        else 
+            return 0.0f;
     }
     public void ShowMap(){
         if (obstacleCell == null){

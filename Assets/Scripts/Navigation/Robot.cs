@@ -131,145 +131,277 @@ public class Robot : MonoBehaviour {
         return angle;
     }
     private List<float> ResolveInverseKinematicsFL(Vector3 pos){
-        Debug.DrawRay(FLjoint1.position, transform.TransformVector(pos), Color.yellow);
-        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
-        return new List<float> { GetJoint1Angle_LeftLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // Debug.Log(pos);
+        List<float> res = new List<float>{ GetJoint1Angle_LeftLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // foreach (var item in res){
+        //     Debug.Log(item);
+        // }
+        return res;
     }
     private List<float> ResolveInverseKinematicsFR(Vector3 pos){
-        Debug.DrawRay(FRjoint1.position, transform.TransformVector(pos), Color.yellow);
-        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
-        return new List<float> { GetJoint1Angle_RightLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // Debug.Log(pos);
+        List<float> res = new List<float>{ GetJoint1Angle_RightLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // foreach (var item in res){
+        //     Debug.Log(item);
+        // }
+        return res;
     }
     private List<float> ResolveInverseKinematicsRL(Vector3 pos){
-        Debug.DrawRay(RLjoint1.position, transform.TransformVector(pos), Color.yellow);
-        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
-        return new List<float> { GetJoint1Angle_LeftLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // Debug.Log(pos);
+        List<float> res = new List<float>{ GetJoint1Angle_LeftLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // foreach (var item in res){
+        //     Debug.Log(item);
+        // }
+        return res;
     }
     private List<float> ResolveInverseKinematicsRR(Vector3 pos){
-        Debug.DrawRay(RRjoint1.position, transform.TransformVector(pos), Color.yellow);
-        // Debug.Log(pos.x + ", " + pos.y + ", " + pos.z);
-        return new List<float> { GetJoint1Angle_RightLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // Debug.Log(pos);
+        List<float> res = new List<float>{ GetJoint1Angle_RightLegs(pos), GetJoint2Angle(pos), GetJoint3Angle(pos) };
+        // foreach (var item in res){
+        //     Debug.Log(item);
+        // }
+        return res;
     }
-    private void ApplyFLAngles(List<float> angles){
+    private bool ApplyFLAngles(List<float> angles){
+        if (angles.Count != 3)
+            return false;
+        foreach (var angle in angles) {
+            if (angle == float.NaN)
+                return false;
+        }
         FLjoint1.localRotation = Quaternion.Euler(angles[0], 0, 0);
         FLjoint2.localRotation = Quaternion.Euler(0, angles[1], 0);
         FLjoint3.localRotation = Quaternion.Euler(0, angles[2], 0);
+        return true;
     }
-    private void ApplyFRAngles(List<float> angles){
+    private bool ApplyFRAngles(List<float> angles){
+        if (angles.Count != 3)
+            return false;
+        foreach (var angle in angles) {
+            if (angle == float.NaN)
+                return false;
+        }
         FRjoint1.localRotation = Quaternion.Euler(angles[0], 0, 0);
         FRjoint2.localRotation = Quaternion.Euler(0, angles[1], 0);
         FRjoint3.localRotation = Quaternion.Euler(0, angles[2], 0);
+        return true;
     }
-    private void ApplyRLAngles(List<float> angles){
+    private bool ApplyRLAngles(List<float> angles){
+        if (angles.Count != 3)
+            return false;
+        foreach (var angle in angles) {
+            if (angle == float.NaN)
+                return false;
+        }
         RLjoint1.localRotation = Quaternion.Euler(angles[0], 0, 0);
         RLjoint2.localRotation = Quaternion.Euler(0, angles[1], 0);
         RLjoint3.localRotation = Quaternion.Euler(0, angles[2], 0);
+        return true;
     }
-    private void ApplyRRAngles(List<float> angles){
+    private bool ApplyRRAngles(List<float> angles){
+        if (angles.Count != 3)
+            return false;
+        foreach (var angle in angles) {
+            if (angle == float.NaN)
+                return false;
+        }
         RRjoint1.localRotation = Quaternion.Euler(angles[0], 0, 0);
         RRjoint2.localRotation = Quaternion.Euler(0, angles[1], 0);
         RRjoint3.localRotation = Quaternion.Euler(0, angles[2], 0);
+        return true;
     }
-    private Tuple<float, Vector3> GetLegMinima(Vector3 pos, Quaternion rot){
+    private List<Tuple<Vector3, Vector3>> GetSphereData(Vector3 pos, Quaternion rot){
         List<Vector3> rayDirections = new List<Vector3>();
-        for (float latitude = 0.0f; latitude < 2.0f * Mathf.PI; latitude += discretization){
+        for (float latitude = 0.0f; latitude < 2.0f * Mathf.PI; latitude += discretization)
             for (float longitude = 0.0f; longitude < Mathf.PI; longitude += discretization){
                 Quaternion yRotation = Quaternion.Euler(Mathf.Rad2Deg * longitude, Mathf.Rad2Deg * latitude, 0.0f);
                 rayDirections.Add(yRotation * Vector3.forward * (lengthJoint2 + lengthJoint3) );
             }
-        }
         
         List<Tuple<Vector3, Vector3>> rayHitData = new List<Tuple<Vector3, Vector3>>(rayDirections.Count);
         foreach (Vector3 dir in rayDirections) {
             RaycastHit hit;
-            // Debug.DrawRay(pos, dir, Color.gray);
             if (Physics.Raycast(pos, dir, out hit, dir.magnitude, ~0)){
-                Vector3 delta = hit.point - pos;
-                rayHitData.Add( new Tuple<Vector3, Vector3>(delta, hit.normal) );
-            } else {
-                rayHitData.Add( new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero) );
+                rayHitData.Add( new Tuple<Vector3, Vector3>(hit.point - pos, hit.normal) );
             }
         }
-        
-        Tuple<float, Vector3> minDelta = new Tuple<float, Vector3>(float.MaxValue, Vector3.zero);
+        return rayHitData;
+    }
+    private List<Tuple<Vector3, Vector3>> FilterDataByAngle(List<Tuple<Vector3, Vector3>> rayHitData, float angle = 45.0f){
+        List<Tuple<Vector3, Vector3>> res = new List<Tuple<Vector3, Vector3>>();
         foreach (var rayItem in rayHitData){
-            if (rayItem.Item1 == Vector3.zero)
-                continue;
-            if (Mathf.Abs(Vector3.Angle(Vector3.up, rayItem.Item2)) > 45.0f)
-                continue;
-            if (rayItem.Item1.magnitude < minDelta.Item1)
-                minDelta = new Tuple<float, Vector3>(rayItem.Item1.magnitude, rayItem.Item1);
+            if (Mathf.Abs(Vector3.Angle(Vector3.up, rayItem.Item2)) < angle)
+                res.Add(rayItem);
         }
-        return minDelta;
+        return res;
+    }
+    private Vector3 GetDeltaSum(List<Tuple<Vector3, Vector3>> rayHitData){
+        Vector3 sumDelta = Vector3.zero;
+        foreach (var rayItem in rayHitData)
+            sumDelta += rayItem.Item1;
+        if (rayHitData.Count > 0)
+            sumDelta /= rayHitData.Count;
+        return sumDelta;
+    }
+    private List<Tuple<Vector3, Vector3>> FilterDataByLength(List<Tuple<Vector3, Vector3>> rayHitData){
+        List<Tuple<Vector3, Vector3>> res = new List<Tuple<Vector3, Vector3>>();
+        foreach (var rayItem in rayHitData){
+            if (rayItem.Item1.magnitude < maxDistance)
+                res.Add(rayItem);
+        }
+        return res;
+    }
+    private Vector3 GetMinima(List<Tuple<Vector3, Vector3>> rayHitData){
+        Vector3 res = Vector3.zero;
+        float minMagnitude = float.MaxValue;
+        foreach (var rayItem in rayHitData) {
+            if (rayItem.Item1.magnitude < minMagnitude){
+                res = rayItem.Item1;
+                minMagnitude = rayItem.Item1.magnitude;
+            }                
+        }
+        return res;
     }
     public Vector3 GetDisplacementByLeg(){
-        Vector3 shift = Vector3.zero;
-        Tuple<float, Vector3> FLdelta = GetLegMinima(FLjoint2.position, FLjoint2.rotation);
-        Tuple<float, Vector3> FRdelta = GetLegMinima(FRjoint2.position, FRjoint2.rotation);
-        Tuple<float, Vector3> RLdelta = GetLegMinima(RLjoint2.position, RLjoint2.rotation);
-        Tuple<float, Vector3> RRdelta = GetLegMinima(RRjoint2.position, RRjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> FLrayData = GetSphereData(FLjoint2.position, FLjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> FRrayData = GetSphereData(FRjoint2.position, FRjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> RLrayData = GetSphereData(RLjoint2.position, RLjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> RRrayData = GetSphereData(RRjoint2.position, RRjoint2.rotation);
+
+        Vector3 FLdelta = Vector3.ProjectOnPlane(GetDeltaSum(FilterDataByAngle(FLrayData)), Vector3.up);
+        Vector3 FRdelta = Vector3.ProjectOnPlane(GetDeltaSum(FilterDataByAngle(FRrayData)), Vector3.up);
+        Vector3 RLdelta = Vector3.ProjectOnPlane(GetDeltaSum(FilterDataByAngle(RLrayData)), Vector3.up);
+        Vector3 RRdelta = Vector3.ProjectOnPlane(GetDeltaSum(FilterDataByAngle(RRrayData)), Vector3.up);
         
-        Tuple<float, Vector3> maxDelta = RRdelta;
-        if (FLdelta.Item1 > FRdelta.Item1 && FLdelta.Item1 > RLdelta.Item1 && FLdelta.Item1 > RRdelta.Item1)
-            maxDelta = FLdelta;
-        else if (FRdelta.Item1 > FLdelta.Item1 && FRdelta.Item1 > RLdelta.Item1 && FRdelta.Item1 > RRdelta.Item1)
-            maxDelta = FRdelta;
-        else if (RLdelta.Item1 > FLdelta.Item1 && RLdelta.Item1 > FRdelta.Item1 && RLdelta.Item1 > RRdelta.Item1)
-            maxDelta = RLdelta;
-        shift = Vector3.ProjectOnPlane( maxDelta.Item2, Vector3.up);
+        // Debug.DrawRay(FLjoint2.position, FLdelta, Color.gray); Debug.DrawRay(FRjoint2.position, FRdelta, Color.gray);
+        // Debug.DrawRay(RLjoint2.position, RLdelta, Color.gray); Debug.DrawRay(RRjoint2.position, RRdelta, Color.gray);
+
+        float totalWeight = FLdelta.magnitude + FRdelta.magnitude + RLdelta.magnitude + RRdelta.magnitude;
+        Vector3 weightedDelta = 
+            FLdelta.magnitude/totalWeight*FLdelta + 
+            FRdelta.magnitude/totalWeight*FRdelta + 
+            RLdelta.magnitude/totalWeight*RLdelta + 
+            RRdelta.magnitude/totalWeight*RRdelta;
+
+        return weightedDelta;
+    }
+    public Vector3 GetBodyHeightByLeg(float meanHeight = 0.22f){
+        List<Tuple<Vector3, Vector3>> FLrayData = GetSphereData(FLjoint2.position, FLjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> FRrayData = GetSphereData(FRjoint2.position, FRjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> RLrayData = GetSphereData(RLjoint2.position, RLjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> RRrayData = GetSphereData(RRjoint2.position, RRjoint2.rotation);
+        List<Tuple<Vector3, Vector3>> bodyRayData = GetSphereData(transform.position, transform.rotation);
+
+        Vector3 FLminima = GetMinima(FilterDataByAngle(FLrayData));
+        Vector3 FRminima = GetMinima(FilterDataByAngle(FRrayData));
+        Vector3 RLminima = GetMinima(FilterDataByAngle(RLrayData));
+        Vector3 RRminima = GetMinima(FilterDataByAngle(RRrayData));
+        Vector3 bodyMinima = GetMinima(FilterDataByAngle(bodyRayData));
+
+        Vector3 idealFLPose = FLjoint2.position + FLminima + Vector3.up * meanHeight;
+        Vector3 FLdelta = Vector3.Project(idealFLPose - FLjoint2.position, Vector3.up);
+        Vector3 idealFRPose = FRjoint2.position + FRminima + Vector3.up * meanHeight;
+        Vector3 FRdelta = Vector3.Project(idealFRPose - FRjoint2.position, Vector3.up);
+        Vector3 idealRLPose = RLjoint2.position + RLminima + Vector3.up * meanHeight;
+        Vector3 RLdelta = Vector3.Project(idealRLPose - RLjoint2.position, Vector3.up);
+        Vector3 idealRRPose = RRjoint2.position + RRminima + Vector3.up * meanHeight;
+        Vector3 RRdelta = Vector3.Project(idealRRPose - RRjoint2.position, Vector3.up);
+        Vector3 idealBodyPose = transform.position + bodyMinima + Vector3.up * meanHeight;
+        Vector3 bodyDelta = Vector3.Project(idealBodyPose - transform.position, Vector3.up);
+        // Debug.DrawLine(FLjoint2.position + FLminima, idealFLPose, Color.black);
+        // Debug.DrawLine(FRjoint2.position + FRminima, idealFRPose, Color.black);
+        // Debug.DrawLine(RLjoint2.position + RLminima, idealRLPose, Color.black);
+        // Debug.DrawLine(RRjoint2.position + RRminima, idealRRPose, Color.black);
+        // Debug.DrawLine(transform.position + bodyMinima, idealBodyPose, Color.black);
+
+        List<Vector3> deltas = new List<Vector3>{
+            Vector3.Project(idealBodyPose - idealFLPose, Vector3.up),
+            Vector3.Project(idealBodyPose - idealFRPose, Vector3.up),
+            Vector3.Project(idealBodyPose - idealRLPose, Vector3.up),
+            Vector3.Project(idealBodyPose - idealRRPose, Vector3.up)
+        };
+        float totalWeight = 0.0f;
+        Vector3 sumDelta = Vector3.zero;
+        foreach (var item in deltas)
+            totalWeight += item.magnitude;
+        if (totalWeight > 0.0f)
+            foreach (var item in deltas)
+                sumDelta += item.magnitude/totalWeight*item;
+        // Debug.DrawRay(transform.position, sumDelta, Color.red);
+
+        Vector3 shift = Vector3.Project(idealBodyPose - transform.position, Vector3.up) - sumDelta;
         return shift;
     }
-    public Vector3 GetBodyHeightByLeg(float meanHeight = 0.26f){
-        Vector3 shift = Vector3.zero;
-        Tuple<float, Vector3> FLdelta = GetLegMinima(FLjoint2.position, FLjoint2.rotation);
-        Tuple<float, Vector3> FRdelta = GetLegMinima(FRjoint2.position, FRjoint2.rotation);
-        Tuple<float, Vector3> RLdelta = GetLegMinima(RLjoint2.position, RLjoint2.rotation);
-        Tuple<float, Vector3> RRdelta = GetLegMinima(RRjoint2.position, RRjoint2.rotation);
-        
-        // Debug.DrawRay(FLjoint2.position, FLdelta.Item2, Color.blue);
-        // Debug.DrawRay(FRjoint2.position, FRdelta.Item2, Color.blue);
-        // Debug.DrawRay(RLjoint2.position, RLdelta.Item2, Color.blue);
-        // Debug.DrawRay(RRjoint2.position, RRdelta.Item2, Color.blue);
+    public bool PlaceFoot(){
+        List<Tuple<Vector3, Vector3>> FLrayData = FilterDataByAngle(GetSphereData(FLjoint2.position, FLjoint2.rotation));
+        List<Tuple<Vector3, Vector3>> FRrayData = FilterDataByAngle(GetSphereData(FRjoint2.position, FRjoint2.rotation));
+        List<Tuple<Vector3, Vector3>> RLrayData = FilterDataByAngle(GetSphereData(RLjoint2.position, RLjoint2.rotation));
+        List<Tuple<Vector3, Vector3>> RRrayData = FilterDataByAngle(GetSphereData(RRjoint2.position, RRjoint2.rotation));
 
-        Vector3 FLeanPose = (meanHeight - FLdelta.Item2.magnitude) * Vector3.up;
-        Vector3 FReanPose = (meanHeight - FRdelta.Item2.magnitude) * Vector3.up;
-        Vector3 RLeanPose = (meanHeight - RLdelta.Item2.magnitude) * Vector3.up;
-        Vector3 RReanPose = (meanHeight - RRdelta.Item2.magnitude) * Vector3.up;
+        Vector3 minProjection = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        int minFLid = -1;
+        for (int id = 0; id < FLrayData.Count; ++id){
+            if (Vector3.ProjectOnPlane(FLrayData[id].Item1, Vector3.up).magnitude < minProjection.magnitude){
+                minFLid = id;
+                minProjection = Vector3.ProjectOnPlane(FLrayData[id].Item1, Vector3.up);
+            }
+        }
+        if (minFLid == -1)
+            return false;
+        minProjection = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        int minFRid = -1;
+        for (int id = 0; id < FRrayData.Count; ++id){
+            if (Vector3.ProjectOnPlane(FRrayData[id].Item1, Vector3.up).magnitude < minProjection.magnitude){
+                minFRid = id;
+                minProjection = Vector3.ProjectOnPlane(FRrayData[id].Item1, Vector3.up);
+            }
+        }
+        if (minFRid == -1)
+            return false;
+        minProjection = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        int minRLid = -1;
+        for (int id = 0; id < RLrayData.Count; ++id){
+            if (Vector3.ProjectOnPlane(RLrayData[id].Item1, Vector3.up).magnitude < minProjection.magnitude){
+                minRLid = id;
+                minProjection = Vector3.ProjectOnPlane(RLrayData[id].Item1, Vector3.up);
+            }
+        }
+        if (minRLid == -1)
+            return false;
+        minProjection = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        int minRRid = -1;
+        for (int id = 0; id < RRrayData.Count; ++id){
+            if (Vector3.ProjectOnPlane(RRrayData[id].Item1, Vector3.up).magnitude < minProjection.magnitude){
+                minRRid = id;
+                minProjection = Vector3.ProjectOnPlane(RRrayData[id].Item1, Vector3.up);
+            }
+        }
+        if (minRRid == -1)
+            return false;
+        Vector3 FLminima = FLrayData[minFLid].Item1;
+        Vector3 FRminima = FRrayData[minFRid].Item1;
+        Vector3 RLminima = RLrayData[minRLid].Item1;
+        Vector3 RRminima = RRrayData[minRRid].Item1;
+        Debug.DrawRay(FLjoint2.position, FLminima, Color.black);
+        Debug.DrawRay(FRjoint2.position, FRminima, Color.black);
+        Debug.DrawRay(RLjoint2.position, RLminima, Color.black);
+        Debug.DrawRay(RRjoint2.position, RRminima, Color.black);
 
-        // Debug.DrawRay(FLjoint2.position + FLdelta.Item2, FLeanPose, Color.black);
-        // Debug.DrawRay(FRjoint2.position + FRdelta.Item2, FReanPose, Color.black);
-        // Debug.DrawRay(RLjoint2.position + RLdelta.Item2, RLeanPose, Color.black);
-        // Debug.DrawRay(RRjoint2.position + RRdelta.Item2, RReanPose, Color.black);
-
-        Tuple<float, Vector3> bodyDelta = GetLegMinima(body.position, RRjoint2.rotation);
-        Debug.DrawRay(transform.position, bodyDelta.Item2, Color.yellow);
-        shift = ((FLjoint2.position + FLdelta.Item2 + FLeanPose) + 
-            (FRjoint2.position + FRdelta.Item2 + FReanPose) + 
-            (RLjoint2.position + RLdelta.Item2 + RLeanPose) + 
-            (RRjoint2.position + RRdelta.Item2 + RReanPose))/4.0f - transform.position;
-            
-        Debug.DrawRay(transform.position, shift, Color.green);
-        return shift;
-    }
-    public void PlaceFoot(){
-        Tuple<float, Vector3> FLdelta = GetLegMinima(FLjoint2.position, FLjoint2.rotation);
-        Tuple<float, Vector3> FRdelta = GetLegMinima(FRjoint2.position, FRjoint2.rotation);
-        Tuple<float, Vector3> RLdelta = GetLegMinima(RLjoint2.position, RLjoint2.rotation);
-        Tuple<float, Vector3> RRdelta = GetLegMinima(RRjoint2.position, RRjoint2.rotation);
-
-        Vector3 FLDirection = FLdelta.Item2 + FLjoint2.position - FLjoint1.position;
-        Vector3 FRDirection = FRdelta.Item2 + FRjoint2.position - FRjoint1.position;
-        Vector3 RLDirection = RLdelta.Item2 + RLjoint2.position - RLjoint1.position;
-        Vector3 RRDirection = RRdelta.Item2 + RRjoint2.position - RRjoint1.position;
+        Vector3 FLDirection = FLminima + FLjoint2.position - FLjoint1.position;
+        Vector3 FRDirection = FRminima + FRjoint2.position - FRjoint1.position;
+        Vector3 RLDirection = RLminima + RLjoint2.position - RLjoint1.position;
+        Vector3 RRDirection = RRminima + RRjoint2.position - RRjoint1.position;
         
         Vector3 pos = transform.InverseTransformVector(FLDirection);
-        ApplyFLAngles(ResolveInverseKinematicsFL(pos));
+        List<float> anglesFL =  ResolveInverseKinematicsFL(pos);
         pos = transform.InverseTransformVector(FRDirection);
-        ApplyFRAngles(ResolveInverseKinematicsFR(pos));       
+        List<float> anglesFR = ResolveInverseKinematicsFR(pos);
         pos = transform.InverseTransformVector(RLDirection);
-        ApplyRLAngles(ResolveInverseKinematicsRL(pos));
+        List<float> anglesRL = ResolveInverseKinematicsRL(pos);
         pos = transform.InverseTransformVector(RRDirection);
-        ApplyRRAngles(ResolveInverseKinematicsRR(pos));
+        List<float> anglesRR = ResolveInverseKinematicsRR(pos);
+        // return true;
+        return ApplyFLAngles(anglesFL) && ApplyFLAngles(anglesFR) && ApplyFLAngles(anglesRL) && ApplyFLAngles(anglesRR);
     }
     
     // private Vector3 GetBodyDisplacements(Quaternion rot){

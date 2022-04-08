@@ -48,8 +48,6 @@ public class GlobalPlanner : MonoBehaviour {
     void Start() {
 
     }
-
-    // Update is called once per frame
     void Update() {
 
     }
@@ -176,6 +174,8 @@ public class GlobalPlanner : MonoBehaviour {
                     }
                 } else {
                     float nextCost = currentCost + GetActionCost(action);
+                    // Additional cost from cost map
+                    nextCost += voxelMap.GetWeigth(nextState);
                     visitedStates.Add(nextState, nextCost);
                     float queueCost = nextCost + GetHeuristics(goalStateDescrete - nextState);
                     Insert(queueCost, nextState);
@@ -212,5 +212,11 @@ public class GlobalPlanner : MonoBehaviour {
             res.Add(voxelMap.GetContinuousState(item));
         }
         return res;
+    }
+    public Vector3Int GetDescrete(Vector3 state){
+        return voxelMap.GetDescreteState(state);
+    }
+    public void SetWieght(Vector3Int vD, float cost){
+        voxelMap.SetWeight(vD, cost);
     }
 }

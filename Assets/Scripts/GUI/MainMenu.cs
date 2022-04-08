@@ -11,22 +11,26 @@ public class MainMenu : MonoBehaviour
     private GameObject mapPanel = null, navPanel = null;
     private VRUI vrui = null;
     private HelpBar helpBar = null;
+    private Transform ActiveController;
+    private LineRenderer lineRenderer = null;
     private enum MenuStatus : int
     {
         NOTHING,
         MAPPING, 
         NAVIGATION
     }
-    void Awake()
-    {
+    void Awake() {
         // find objects of VRUI
         mapPanel = transform.GetChild(0).gameObject;
         navPanel = transform.GetChild(1).gameObject;
         vrui = transform.parent.GetComponent<VRUI>();
         helpBar = transform.parent.GetChild(transform.parent.childCount - 1).GetComponent<HelpBar>();
+        
+        lineRenderer = gameObject.GetComponent<LineRenderer>();
+        ActiveController = transform.parent.parent.GetChild(1);
     }
-    void Update()
-    {
+    void Update() {
+        lineRenderer.positionCount = 0;
         if (menuIsActive){
             mapPanel.SetActive(true);
             navPanel.SetActive(true);
@@ -73,6 +77,25 @@ public class MainMenu : MonoBehaviour
                 break;
         }
     }
+    private Vector3 GetPosition(){        
+        Debug.DrawRay(ActiveController.transform.position, 
+            ActiveController.transform.TransformDirection(Vector3.forward) * 100,
+            Color.yellow);
+            
+        lineRenderer = gameObject.GetComponent<LineRenderer>();
+        RaycastHit hit;
+        if (Physics.Raycast(ActiveController.transform.position, 
+            ActiveController.transform.TransformDirection(Vector3.forward), 
+            out hit, Mathf.Infinity, 7)){
+                lineRenderer.positionCount = 2;
+                lineRenderer.SetPosition(0, ActiveController.transform.position);
+                lineRenderer.SetPosition(1, hit.point);
+                return hit.point;
+        } else {
+            lineRenderer.positionCount = 0;
+        }
+        return Vector3.zero;
+    }
     public void processTouchTrackpad(bool newState){
         menuIsActive = newState;
     }
@@ -93,5 +116,8 @@ public class MainMenu : MonoBehaviour
             default:
                 break;
         }
+    }
+    public void processTriggerPress(){
+
     }
 }

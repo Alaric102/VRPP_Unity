@@ -72,6 +72,8 @@ public class VRUI : MonoBehaviour
             navMenuObj.GetComponent<NavigationMenu>().processTriggerPress();
         } else if (mapMenuObj.activeSelf){
             mapMenuObj.GetComponent<MappingMenu>().processTriggerPress();
+        } if (mainMenuObj.activeSelf){
+            mainMenuObj.GetComponent<MainMenu>().processTriggerPress();
         }
     }
     public void SetActiveMainMenu(){

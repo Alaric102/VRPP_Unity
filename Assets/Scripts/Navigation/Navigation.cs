@@ -3,8 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Navigation : MonoBehaviour
-{
+public class Navigation : MonoBehaviour {
     private GlobalPlanner gPlanner;
     private LocalPlanner lPlanner;
     List<Vector3> globalPlan = new List<Vector3>();
@@ -19,7 +18,9 @@ public class Navigation : MonoBehaviour
         lPlanner = transform.GetComponent<LocalPlanner>();
     }
     void Start() {}
-    void Update() {}
+    void Update() {
+
+    }
     public Transform GetStartState(){ // Get activated star state transform
         startState.gameObject.SetActive(true);
         return startState;
@@ -31,10 +32,12 @@ public class Navigation : MonoBehaviour
     public void StartPlanning(){
         List<Vector3Int> plan = gPlanner.GetGlobalPlan(startState.position, goalState.position);
         globalPlan = gPlanner.ConvertPlanToCont(plan);
+        lPlanner.SetGlobalPath(globalPlan);
         gPlanner.ShowPlan(globalPlan);
-        // lPlanner.SetGlobalPath(globalPlan);
     }
     public void Replan(Vector3 newGoal, int startID){
+        gPlanner.SetWieght(gPlanner.GetDescrete(globalPlan[startID]), 1.0f);
+
         List<Vector3> newPath = new List<Vector3>();
         for (int id = 0; id < startID; ++id){
             newPath.Add(globalPlan[id]);
@@ -53,6 +56,7 @@ public class Navigation : MonoBehaviour
 
         globalPlan = newPath;
         gPlanner.ShowPlan(globalPlan);
+        // lPlanner.SetGlobalPath(globalPlan);
     }
     public List<Vector3> GetGlobalPlan(){
         return globalPlan;

@@ -39,6 +39,7 @@ public class MappingMenu : MonoBehaviour
         helpBar = transform.parent.GetChild(transform.parent.childCount - 1).GetComponent<HelpBar>();
     }
     void Update() {
+        lineRenderer.positionCount = 0;
         if (menuIsActive && !(isSettingObstacle)){
             ShowMenu(true);
             
