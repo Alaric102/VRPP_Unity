@@ -37,6 +37,7 @@ public class MappingMenu : MonoBehaviour
         ActiveController = transform.parent.parent.GetChild(1);
         vrui = transform.parent.GetComponent<VRUI>();
         helpBar = transform.parent.GetChild(transform.parent.childCount - 1).GetComponent<HelpBar>();
+        lineRenderer = transform.GetComponent<LineRenderer>();
     }
     void Update() {
         lineRenderer.positionCount = 0;

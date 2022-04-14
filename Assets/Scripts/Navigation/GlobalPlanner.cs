@@ -27,7 +27,7 @@ public class GlobalPlanner : MonoBehaviour {
                 Debug.Log("No parent: " + parent + " for node: " + node);
             }
         }
-        public List<Vector3Int> GetPlan(Vector3Int endState){
+        private List<Vector3Int> GetFullPath(Vector3Int endState){
             if (!graph.ContainsKey(endState)){
                 Debug.Log("No end state in graph: " + endState);
                 return new List<Vector3Int>();
@@ -41,6 +41,26 @@ public class GlobalPlanner : MonoBehaviour {
             path.Reverse();
             return path;
         }
+
+        public List<Vector3Int> GetPlan(Vector3Int endState){
+            List<Vector3Int> path = GetFullPath(endState);
+            if (path.Count == 0){
+                return path;
+            }
+            List<Vector3Int> res = new List<Vector3Int>();
+            Vector3Int prevDelta = Vector3Int.zero;
+            for (int id = 0; id < path.Count - 1; ++id){
+                Vector3Int delta = path[id + 1] - path[id];
+                if (delta == prevDelta){
+                    continue;
+                } else {
+                    res.Add(path[id]);
+                    prevDelta = delta;
+                }
+            }
+            res.Add(path[path.Count - 1]);
+            return res;
+        }
     }
     private Graph graph;
     private List<Transform> planStates = new List<Transform>();
@@ -50,12 +70,6 @@ public class GlobalPlanner : MonoBehaviour {
     }
     void Update() {
 
-    }
-    private void SetStartState(Vector3 v){
-        startStateDescrete = voxelMap.GetDescreteState(v);
-    }
-    private void SetGoalState(Vector3 v){
-        goalStateDescrete = voxelMap.GetDescreteState(v);
     }
     private int FindLowerBound(float cost, int minID, int maxID){
         if (maxID - minID == 1){
@@ -93,20 +107,28 @@ public class GlobalPlanner : MonoBehaviour {
         return actionSpace;
     }
     private float GetActionCost(Vector3Int v){
-        // return (v.y != 0) ? 2.0f : 1.0f;
-        return v.magnitude;
+        return (v.y != 0) ? (1 + Mathf.Abs(v.y)) : 1.0f;
+        // return v.magnitude;
     }
     private float GetHeuristics(Vector3Int v){
         return v.magnitude;
     }
     public List<Vector3Int> GetGlobalPlan(Vector3 start, Vector3 goal){
+
         startStateDescrete = voxelMap.GetDescreteState(start);
         goalStateDescrete = voxelMap.GetDescreteState(goal);
 
         while (voxelMap.IsObstacle(startStateDescrete))
             startStateDescrete.y += 1;
+        while (!voxelMap.IsObstacle(startStateDescrete + new Vector3Int(0, -1, 0))){
+            startStateDescrete += new Vector3Int(0, -1, 0);
+        }
+
         while (voxelMap.IsObstacle(goalStateDescrete))
             goalStateDescrete.y += 1;
+        while (!voxelMap.IsObstacle(goalStateDescrete + new Vector3Int(0, -1, 0))){
+            goalStateDescrete += new Vector3Int(0, -1, 0);
+        }
 
         sortedQueue.Clear();
         visitedStates.Clear();
@@ -189,8 +211,8 @@ public class GlobalPlanner : MonoBehaviour {
         foreach (var item in planStates)
             Destroy(item.gameObject);
         planStates.Clear();
-        planStates.Add(Instantiate(startObj, voxelMap.GetContinuousState(startStateDescrete), Quaternion.identity, transform));
-        planStates.Add(Instantiate(goalObj, voxelMap.GetContinuousState(goalStateDescrete), Quaternion.identity, transform));
+        // planStates.Add(Instantiate(startObj, voxelMap.GetContinuousState(startStateDescrete), Quaternion.identity, transform));
+        // planStates.Add(Instantiate(goalObj, voxelMap.GetContinuousState(goalStateDescrete), Quaternion.identity, transform));
         if (plan.Count > 0){
             foreach (var pos in plan){
                 Transform newStateObj = Instantiate(visitedObj, pos, Quaternion.identity, transform);
