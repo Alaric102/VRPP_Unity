@@ -25,6 +25,8 @@ public class Robot : MonoBehaviour {
     [Header("RR leg variables")]
     private List<Transform> RRjoints = new List<Transform>(4);
 
+    private List<Tuple<Vector3, Vector3>> collisionData = new List<Tuple<Vector3, Vector3>>();
+
     void Awake() {
         Initialize();
     }
@@ -186,14 +188,16 @@ public class Robot : MonoBehaviour {
         rayHitData.Sort(CompareByCross);
         return rayHitData;
     }
-    private List<Tuple<Vector3, List<float>>> FindFeasibleLegSolutions(List<Transform> joints, Func<Vector3, List<float>> InverseFunction, bool isShow = false){
+    private List<Tuple<Vector3, List<float>>> FindFeasibleLegSolutions(List<Transform> joints, 
+        Func<Vector3, List<float>> InverseFunction, bool isShow = false){
         List<Tuple<Vector3, Vector3>> rayData = GetVectorPotentials(joints[1].position, false);
         List<Tuple<Vector3, List<float>>> feasibleSolutions = new List<Tuple<Vector3, List<float>>>();
 
         float filterAngle = 45.0f;
         foreach (var item in rayData) {
             // Don't use vertical surfaces
-            if (Mathf.Abs( Vector3.Angle(Vector3.up, item.Item2)) > filterAngle)
+            float angle = Mathf.Abs( Vector3.Angle(Vector3.up, item.Item2));
+            if (angle > filterAngle)
                 continue;
             // Resolve Inverse Kinematics from Joint1
             Vector3 directionFromJoint1 = transform.InverseTransformVector(item.Item1 + (joints[1].position - joints[0].position));
@@ -211,29 +215,33 @@ public class Robot : MonoBehaviour {
         }
         return feasibleSolutions;
     }
-    private Tuple<bool, List<float>> FindObstacleFreeSolution(List<Transform> joints, Func<Vector3, List<float>> InverseFunction){
-        var solutionsFL = FindFeasibleLegSolutions(joints, InverseFunction, false);
-        foreach (var solution in solutionsFL) {
+    private Tuple<bool, List<float>> FindObstacleFreeSolution(List<Transform> joints, 
+        Func<Vector3, List<float>> InverseFunction, bool isShow = false){
+        // Return true and direction if solution have found, otherwise return false
+
+        var solutions = FindFeasibleLegSolutions(joints, InverseFunction, false);
+        if (solutions.Count == 0)
+            return new Tuple<bool, List<float>>(false, new List<float>{0.0f, 0.0f, 0.0f});
+        foreach (var solution in solutions) {
             if (IsAnglesInCollision(joints, solution.Item2, false)){
-                Debug.DrawRay(joints[0].position, solution.Item1, Color.red);
+                if (isShow) Debug.DrawRay(joints[0].position, solution.Item1, Color.red);
                 continue;
             }
-            Debug.DrawRay(joints[0].position, solution.Item1, Color.green);
+            if (isShow) Debug.DrawRay(joints[0].position, solution.Item1, Color.green);
             return new Tuple<bool, List<float>>(true, solution.Item2);
         }
-        return new Tuple<bool, List<float>>(false, solutionsFL[solutionsFL.Count - 1].Item2);
+        return new Tuple<bool, List<float>>(false, solutions[solutions.Count - 1].Item2);
     }
     public bool PropagateLegMovements(){
         var solutionFL = FindObstacleFreeSolution(FLjoints, ResolveInverseKinematicsFL);
         var solutionFR = FindObstacleFreeSolution(FRjoints, ResolveInverseKinematicsFR);
         var solutionRL = FindObstacleFreeSolution(RLjoints, ResolveInverseKinematicsRL);
         var solutionRR = FindObstacleFreeSolution(RRjoints, ResolveInverseKinematicsRR);
-        bool isBodyInColision = InCollision(body, true);
-        return solutionFL.Item1 && solutionFR.Item1 && solutionRL.Item1 && solutionRR.Item1 && isBodyInColision;
+        bool isBodyInColision = InCollision(body, false);
+        return solutionFL.Item1 && solutionFR.Item1 && solutionRL.Item1 && solutionRR.Item1 && !isBodyInColision;
     }
     public List<Tuple<Vector3, Quaternion>> GetLegMovements(Vector3 deltaTransition, Quaternion deltaRotation, float dStep = 0.05f){
-            /* Calculate heap translation and rotation movements
-            */
+        // Calculate heap translation and rotation movements
         List<Tuple<Vector3, Quaternion>> res = new List<Tuple<Vector3, Quaternion>>(4);
         foreach (var heapPose in heapRelativePose) {
             Vector3 deltaTrans = Vector3.ClampMagnitude(deltaTransition, dStep);
@@ -261,6 +269,7 @@ public class Robot : MonoBehaviour {
                 RaycastHit hit;
                 Vector3 direction = verts[j] - verts[i];
                 if (Physics.Raycast(verts[i], direction, out hit, direction.magnitude, ~(1 << 6))){
+                    collisionData.Add(new Tuple<Vector3, Vector3>(hit.point, hit.normal));
                     res = true;
                     if (isShow)
                         Debug.DrawLine(verts[i], hit.point, Color.red);
@@ -271,9 +280,23 @@ public class Robot : MonoBehaviour {
         }
         return res;
     }
-    private Vector3 GetDeviation(List<Tuple<Vector3, Vector3>> rayHitData){
+    public Vector3 GetDeviation(){
         Vector3 res = Vector3.zero;
-        return res;
+        Vector3 meanPose = Vector3.zero;
+        Vector3 meanNorm = Vector3.zero;
+        foreach (var item in collisionData) {
+            // Don't use vertical surfaces
+            float angle = Mathf.Abs(Vector3.Angle(transform.up, item.Item2));
+            // if ( angle < 45.0f || angle > 135.0f)
+            //     continue;
+            Debug.DrawRay(item.Item1, item.Item2 * 0.05f, Color.gray);
+            // meanPose = Vector3.Lerp(meanPose, item.Item1, 0.5f);
+            // meanNorm = Vector3.Lerp(meanNorm, item.Item2, 0.5f);
+            meanPose = (meanPose + item.Item1) * 0.5f;
+            meanNorm = (meanNorm + item.Item2) * 0.5f;
+        }
+        Debug.DrawRay(meanPose, meanNorm * (transform.position - meanPose).magnitude, Color.red);
+        return meanNorm * (transform.position - meanPose).magnitude;
     }
     // private List<Tuple<Vector3, Vector3>> FilterDataByLength(List<Tuple<Vector3, Vector3>> rayHitData){
     //     List<Tuple<Vector3, Vector3>> res = new List<Tuple<Vector3, Vector3>>();

@@ -78,7 +78,7 @@ public class VoxelMap : MonoBehaviour
             (v.y)*gridSize_.y + gridSize_.y/2.0f + minCorner_.y ,
             (v.z)*gridSize_.z + gridSize_.z/2.0f + minCorner_.z );
     }
-    public Vector3Int GetDescreteState(Vector3 v){
+    public Vector3Int GetDiscreteState(Vector3 v){
         Vector3 unsignedGlobalPose = v - minCorner_;
         return new Vector3Int(
                 ((int)Mathf.Floor(unsignedGlobalPose.x/gridSize_.x)),
@@ -143,6 +143,6 @@ public class VoxelMap : MonoBehaviour
     }
     public void UpdateRegion(Transform obstacle){
         Debug.Log(obstacle.position);
-        Debug.Log(GetDescreteState(obstacle.position));
+        Debug.Log(GetDiscreteState(obstacle.position));
     }
 }

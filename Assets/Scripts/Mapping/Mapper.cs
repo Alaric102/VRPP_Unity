@@ -167,7 +167,7 @@ public class Mapper : MonoBehaviour
     }
     private void UpdateMap(Transform obstacle){
         // Implement updating mapp in some region
-        Vector3Int pos = voxelMap.GetDescreteState(obstacle.position);
+        Vector3Int pos = voxelMap.GetDiscreteState(obstacle.position);
         Vector3 scale = obstacle.lossyScale;
         Vector3Int range = new Vector3Int(
             ((int)(scale.x/voxelMap.GetGridSize().x)),
