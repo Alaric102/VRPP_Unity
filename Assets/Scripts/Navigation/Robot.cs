@@ -140,23 +140,21 @@ public class Robot : MonoBehaviour {
     private List<float> ResolveInverseKinematicsRR(Vector3 pos){
         return new List<float>{ GetJoint1Angle(pos, Joint1AngleRightSide), GetJoint2Angle(pos), GetJoint3Angle(pos) };
     }
-    private bool IsAnglesInCollision(List<Transform> joints, List<float> angles, bool isShow = false){
-        bool res = false;
-        string s = "";
+    private Tuple<Vector3, Vector3> IsAnglesInCollision(List<Transform> joints, List<float> angles, bool isShow = false){
+        // Check joint0
         joints[0].localRotation = Quaternion.Euler(angles[0], 0, 0);
-        if ( InCollision(joints[0], isShow) ){
-            res = true;
-            s += "In collision: " + joints[0].gameObject.name + "\n";
+        var jointCollision = InCollision(joints[0], isShow);
+        if ( jointCollision.Item2 != Vector3.zero ){
+            return jointCollision;
         }
+        // Check joint1
         joints[1].localRotation = Quaternion.Euler(0, angles[1], 0);
-        if ( InCollision(joints[1], isShow) ){
-            res = true;
-            s += "In collision: " + joints[1].gameObject.name + "\n";
-        }           
+        jointCollision = InCollision(joints[1], isShow);
+        if ( jointCollision.Item2 != Vector3.zero ){
+            return jointCollision;
+        }         
         joints[2].localRotation = Quaternion.Euler(0, angles[2], 0);
-        if (isShow && s != "")
-            Debug.Log(s);
-        return res;
+        return new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero);
     }
     private static int CompareByCross(Tuple<Vector3, Vector3> x, Tuple<Vector3, Vector3> y){
         // To sort by Vector3.Cross(norm1, delta1) < Vector3.Cross(norm2, delta2)
@@ -215,30 +213,43 @@ public class Robot : MonoBehaviour {
         }
         return feasibleSolutions;
     }
-    private Tuple<bool, List<float>> FindObstacleFreeSolution(List<Transform> joints, 
+    private Tuple<bool, Vector3> FindObstacleFreeSolution(List<Transform> joints, 
         Func<Vector3, List<float>> InverseFunction, bool isShow = false){
         // Return true and direction if solution have found, otherwise return false
-
         var solutions = FindFeasibleLegSolutions(joints, InverseFunction, false);
-        if (solutions.Count == 0)
-            return new Tuple<bool, List<float>>(false, new List<float>{0.0f, 0.0f, 0.0f});
+        //if no solutions exist
+        if (solutions.Count == 0){
+            return new Tuple<bool, Vector3>(false, Vector3.zero);
+        }
+        
+        Vector3 meanNormal = Vector3.zero;
+        int collisionCounter = 0;
         foreach (var solution in solutions) {
-            if (IsAnglesInCollision(joints, solution.Item2, false)){
-                if (isShow) Debug.DrawRay(joints[0].position, solution.Item1, Color.red);
+            var jointCollisionData = IsAnglesInCollision(joints, solution.Item2, false);
+            if (jointCollisionData.Item2 != Vector3.zero){
+                meanNormal += jointCollisionData.Item2; collisionCounter++;
                 continue;
             }
             if (isShow) Debug.DrawRay(joints[0].position, solution.Item1, Color.green);
-            return new Tuple<bool, List<float>>(true, solution.Item2);
+            return new Tuple<bool, Vector3>(true, solution.Item1);
         }
-        return new Tuple<bool, List<float>>(false, solutions[solutions.Count - 1].Item2);
+        //if no solution without collison
+        return new Tuple<bool, Vector3>(false, meanNormal / collisionCounter);
     }
-    public bool PropagateLegMovements(){
+    public Vector3 IsPropagatableMovement(){
         var solutionFL = FindObstacleFreeSolution(FLjoints, ResolveInverseKinematicsFL);
         var solutionFR = FindObstacleFreeSolution(FRjoints, ResolveInverseKinematicsFR);
         var solutionRL = FindObstacleFreeSolution(RLjoints, ResolveInverseKinematicsRL);
         var solutionRR = FindObstacleFreeSolution(RRjoints, ResolveInverseKinematicsRR);
-        bool isBodyInColision = InCollision(body, false);
-        return solutionFL.Item1 && solutionFR.Item1 && solutionRL.Item1 && solutionRR.Item1 && !isBodyInColision;
+        bool isBodyInCollision = false;
+        Tuple<Vector3, Vector3> bodyCollision = InCollision(body, false);
+        if (bodyCollision.Item2 != Vector3.zero)
+            isBodyInCollision = true;
+        if (solutionFL.Item1 && solutionFR.Item1 && solutionRL.Item1 && solutionRR.Item1 && !isBodyInCollision){
+            return Vector3.zero;
+        }
+        Vector3 deviation = (bodyCollision.Item2 + solutionFL.Item2 + solutionFR.Item2 + solutionRL.Item2 + solutionRR.Item2) / 4.0f;
+        return deviation;
     }
     public List<Tuple<Vector3, Quaternion>> GetLegMovements(Vector3 deltaTransition, Quaternion deltaRotation, float dStep = 0.05f){
         // Calculate heap translation and rotation movements
@@ -250,8 +261,8 @@ public class Robot : MonoBehaviour {
         }
         return res;
     }
-    private bool InCollision(Transform obj, bool isShow = false){
-        /* Return true if in collision, otherwise false
+    private Tuple<Vector3, Vector3> InCollision(Transform obj, bool isShow = false){
+        /* Return mean collision point and min normal vector of collision
         */
         List<Vector3> verts = new List<Vector3>();
         BoxCollider b = obj.GetComponent<BoxCollider>();
@@ -262,15 +273,19 @@ public class Robot : MonoBehaviour {
                     verts.Add( obj.TransformPoint(v) );
                 }
 
-        bool res = false;
+        Vector3 meanPoint = Vector3.zero; Vector3 meanNormal = Vector3.zero;
+        int hitNumber = 0;
         for (int i = 0; i < verts.Count; i++) {
             for (int j = 0; j < verts.Count; j++) {
                 if (i == j) continue;
                 RaycastHit hit;
                 Vector3 direction = verts[j] - verts[i];
                 if (Physics.Raycast(verts[i], direction, out hit, direction.magnitude, ~(1 << 6))){
-                    collisionData.Add(new Tuple<Vector3, Vector3>(hit.point, hit.normal));
-                    res = true;
+                    meanPoint += hit.point;
+                    meanNormal += hit.normal;
+                    hitNumber++;
+                    // collisionData.Add(new Tuple<Vector3, Vector3>(hit.point, hit.normal));
+                    // res = true;
                     if (isShow)
                         Debug.DrawLine(verts[i], hit.point, Color.red);
                 } else if (isShow){
@@ -278,7 +293,11 @@ public class Robot : MonoBehaviour {
                 }
             }
         }
-        return res;
+        if (hitNumber > 0){
+            meanPoint /= hitNumber;
+            meanNormal /= hitNumber;
+        }
+        return new Tuple<Vector3, Vector3>(meanPoint, meanNormal);
     }
     public Vector3 GetDeviation(){
         Vector3 res = Vector3.zero;
@@ -290,10 +309,10 @@ public class Robot : MonoBehaviour {
             // if ( angle < 45.0f || angle > 135.0f)
             //     continue;
             Debug.DrawRay(item.Item1, item.Item2 * 0.05f, Color.gray);
-            // meanPose = Vector3.Lerp(meanPose, item.Item1, 0.5f);
-            // meanNorm = Vector3.Lerp(meanNorm, item.Item2, 0.5f);
-            meanPose = (meanPose + item.Item1) * 0.5f;
-            meanNorm = (meanNorm + item.Item2) * 0.5f;
+            meanPose = Vector3.Lerp(meanPose, item.Item1, 0.5f);
+            meanNorm = Vector3.Lerp(meanNorm, item.Item2, 0.5f);
+            // meanPose = (meanPose + item.Item1) * 0.5f;
+            // meanNorm = (meanNorm + item.Item2) * 0.5f;
         }
         Debug.DrawRay(meanPose, meanNorm * (transform.position - meanPose).magnitude, Color.red);
         return meanNorm * (transform.position - meanPose).magnitude;

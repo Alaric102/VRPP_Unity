@@ -12,12 +12,14 @@ public class VoxelMap : MonoBehaviour
     private Vector3 gridSize_, minCorner_;
     private Dictionary<Vector3Int, Vector3> voxelMap = new Dictionary<Vector3Int, Vector3>(0);
     private Dictionary<Vector3Int, float> weightMap = new Dictionary<Vector3Int, float>(0);
+    private Dictionary<Vector3Int, Vector3Int> actionMap = new Dictionary<Vector3Int, Vector3Int>(0);
     void Awake() {
     }
     public void SetMapSize(Vector3Int v){
         mapSize_ = v;
         voxelMap = new Dictionary<Vector3Int, Vector3>(mapSize_.x * mapSize_.y * mapSize_.z);
         weightMap = new Dictionary<Vector3Int, float>(mapSize_.x * mapSize_.y * mapSize_.z);
+        actionMap = new Dictionary<Vector3Int, Vector3Int>(mapSize_.x * mapSize_.y * mapSize_.z);
         Debug.Log("New voxel size: " + mapSize_);
     }
     public void SetGridSize(Vector3 v){
@@ -47,10 +49,25 @@ public class VoxelMap : MonoBehaviour
             weightMap.Add(vD, cost);
     }
     public float GetWeigth(Vector3Int vD){
-        if (weightMap.ContainsKey(vD))
+        if (weightMap.ContainsKey(vD)){
+            // Debug.Log("cost: " + vD + ", " + weightMap[vD]);
             return weightMap[vD];
-        else 
+        } else 
             return 0.0f;
+    }
+    public void SetAction(Vector3Int vD, Vector3Int action){
+        if (actionMap.ContainsKey(vD))
+            actionMap[vD] += action;
+        else 
+            actionMap.Add(vD, action);
+    }
+    public Vector3Int GetAction(Vector3Int vD){
+        if (actionMap.ContainsKey(vD)){
+            Debug.Log("action: " + vD + ", " + actionMap[vD]);
+            return actionMap[vD];
+        }
+        else 
+            return Vector3Int.zero;
     }
     public void ShowMap(){
         if (obstacleCell == null){

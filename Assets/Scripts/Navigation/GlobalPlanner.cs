@@ -65,7 +65,7 @@ public class GlobalPlanner : MonoBehaviour {
             sortedQueue.Add(new Tuple<float, Vector3Int>(cost, v));
         }
     }
-    private List<Vector3Int> GetActionSpace(){
+    private List<Vector3Int> GetActionSpace(Vector3Int state){
         List<Vector3Int> actionSpace = new List<Vector3Int>();
         for (int x = -1; x <= 1; ++x)
             for (int y = 0; y <= 0; ++y)
@@ -78,7 +78,6 @@ public class GlobalPlanner : MonoBehaviour {
     }
     private float GetActionCost(Vector3Int v){
         return (v.y != 0) ? (1 + 0.0f) : 1.0f;
-        // return (v.y != 0) ? (1 + Mathf.Abs(v.y)) : 1.0f;
     }
     private float GetHeuristics(Vector3Int v){
         return v.magnitude;
@@ -110,7 +109,7 @@ public class GlobalPlanner : MonoBehaviour {
                 return GetContinuousPlan(pathDiscrete);
             }
 
-            List<Vector3Int> actions = GetActionSpace();
+            List<Vector3Int> actions = GetActionSpace(currentState);
             foreach (Vector3Int act in actions) {
                 Vector3Int action = act;
                 Vector3Int nextState = currentState + action;
@@ -150,6 +149,8 @@ public class GlobalPlanner : MonoBehaviour {
                 } else {
                     continue;
                 }
+                action += voxelMap.GetAction(currentState);
+                nextState += voxelMap.GetAction(currentState);
 
                 bool isVisited = visitedStates.ContainsKey(nextState);
                 float currentCost = visitedStates[currentState];
@@ -162,7 +163,7 @@ public class GlobalPlanner : MonoBehaviour {
                     }
                 } else {
                     float nextCost = currentCost + GetActionCost(action);
-                    // Additional cost from cost map
+                    // Additional cost from learned cost map
                     nextCost += voxelMap.GetWeigth(nextState);
                     visitedStates.Add(nextState, nextCost);
                     float queueCost = nextCost + GetHeuristics(goalStateDescrete - nextState);

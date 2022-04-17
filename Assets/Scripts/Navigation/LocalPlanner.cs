@@ -6,28 +6,53 @@ using UnityEngine;
 public class LocalPlanner : MonoBehaviour {
     public VoxelMap voxelMap = null;
     public Transform runnerState = null;
-    private List<Transform> localStates = new List<Transform>();
-    private List<Vector3> globalPath = new List<Vector3>();
-    private Vector3 globalPoseOrigin = Vector3.zero;
     public float dStep = 0.05f;
-    private Transform currentState, goalState;
+    private List<Transform> localStates = new List<Transform>();
+    private Dictionary<Vector3, List<Transform>> goalToStates = new Dictionary<Vector3, List<Transform>>();
+    private Queue<Transform> toReachStates = new Queue<Transform>();
+    private List<Transform> reachedStates = new List<Transform>();
+    private Transform currentState, globalStatePrefab;
     private bool isPlanning = false;
-    private int currentGoalID = 0;
     private GlobalPlanner gPlanner = null;
+    public Vector3 deviation = Vector3.zero;
+    private Vector3 goalPose = Vector3.zero;
     private void ClearStates(){
-        foreach (var state in localStates)
-            Destroy(state.gameObject);
-        localStates.Clear();
+        ClearStatesToAchieve();
+        ClearAcheivedStates();
     }
-    private Vector3 GetDelta(Vector3 pose){
-        if (currentGoalID == globalPath.Count)
-            return Vector3.zero;
-        if ((pose - globalPath[currentGoalID]).magnitude < dStep){
-            currentGoalID++;
-            globalPoseOrigin = globalPath[currentGoalID];
-            return GetDelta(pose);
+    private void ClearAcheivedStates(){
+        foreach (var item in reachedStates) {
+            Destroy(item.gameObject);
         }
-        return globalPath[currentGoalID] - pose;
+        reachedStates.Clear();
+    }
+    private void ClearStatesToAchieve(){
+        while (toReachStates.Count > 0) {
+            Destroy(toReachStates.Dequeue().gameObject);
+        }
+    }
+    private void SetStateToAchieve(Vector3 pose){
+        Transform newState = Instantiate(globalStatePrefab, pose, Quaternion.identity, transform);
+        newState.gameObject.name = voxelMap.GetDiscreteState(pose).ToString() + 
+            " to reach " + toReachStates.Count.ToString();
+        newState.gameObject.SetActive(true);
+        toReachStates.Enqueue(newState);
+    }
+    private void SetNextStateAchived(){
+        var achieved = toReachStates.Dequeue();
+        achieved.GetComponent<Renderer>().material.color = Color.green;
+        achieved.gameObject.name = "achived " + reachedStates.Count.ToString();
+        reachedStates.Add(achieved);
+    }
+    private Vector3 GetRelevantGoal(Vector3 pose){
+        if (toReachStates.Count == 0)
+            return currentState.position;
+        if ((pose - toReachStates.Peek().position).magnitude < dStep){
+            SetNextStateAchived();
+            return GetRelevantGoal(pose);
+        } else {
+            return toReachStates.Peek().position;
+        }
     }
     private Quaternion GetDeltaAlignedOrigin(Vector3 delta){
         Vector3 deltaFront = delta.normalized;
@@ -43,28 +68,47 @@ public class LocalPlanner : MonoBehaviour {
         Debug.DrawRay(pos, rot * Vector3.forward * 0.15f, Color.blue);
         Debug.DrawRay(pos, rot * Vector3.right * 0.15f, Color.red);
         Debug.DrawRay(pos, rot * Vector3.up * 0.15f, Color.green);
-    } 
+    }
+    private void RequestNewPathAfter(Vector3 lastReached, Vector3 goal){
+        ClearStatesToAchieve();
+        deviation = Vector3.zero;
+        var newAfterPath = gPlanner.GetGlobalPlan(lastReached, goal);
+        foreach (var pose in newAfterPath) {
+            SetStateToAchieve(pose);
+        }
+    }
+    private Transform ForgetBranch(Vector3 goalKey){
+        if (goalToStates.ContainsKey(goalKey)){
+            foreach (var item in goalToStates[goalKey]) {
+                Destroy(item.gameObject);
+            }
+            goalToStates.Remove(goalKey);
+        }
+        var lastReached = reachedStates[reachedStates.Count - 1].position;
+        return goalToStates[lastReached][goalToStates[lastReached].Count - 1];
+    }
 
     void Awake(){
         gPlanner = transform.GetComponent<GlobalPlanner>();
+        globalStatePrefab = transform.GetChild(2);
     }
     void Update() {
         if (isPlanning){
-            // Calculate Global delta translation and rotation
-            currentState = localStates[localStates.Count - 1];
-            Robot currentRobot = currentState.GetComponent<Robot>();
-            Vector3 deltaPose = GetDelta(currentState.position);
+            Vector3 relevantGoal = GetRelevantGoal(currentState.position);
+            Vector3 currentGoalPose = relevantGoal + deviation;
+            Vector3 deltaPose = currentGoalPose - currentState.position;
             Quaternion deltaDirection = GetDeltaAlignedOrigin(deltaPose);
             Quaternion deltaRotation = deltaDirection * Quaternion.Inverse(currentState.rotation);
             { // Draw deltaDirection origin
                 DrawDirection(currentState.position, deltaDirection);
                 Debug.DrawRay(currentState.position, deltaRotation.eulerAngles, Color.white);
-                Debug.DrawLine(currentState.position, globalPath[currentGoalID], Color.yellow);
-                Debug.Log("deltaPose: " + deltaPose.magnitude + "\n" + 
-                    "deltaRotation.eulerAngles: " + deltaRotation.eulerAngles);
+                Debug.DrawLine(currentState.position, currentGoalPose, Color.yellow);
+                // Debug.Log("deltaPose: " + deltaPose.magnitude + "\n" + 
+                //     "deltaRotation.eulerAngles: " + deltaRotation.eulerAngles);
             }
             
             // Calculate mean clamped delta of tarnsition and rotation by each leg
+            Robot currentRobot = currentState.GetComponent<Robot>();
             List<Tuple<Vector3, Quaternion>> legMovements = 
                 currentRobot.GetLegMovements(deltaPose, deltaRotation);
             Vector3 meanTransition = Vector3.zero;
@@ -81,52 +125,62 @@ public class LocalPlanner : MonoBehaviour {
             // Propagate to next state
             Transform nextState = Instantiate(runnerState, currentState.position + meanTransition, 
                 meanRotation * currentState.rotation,  transform);
-            
             Robot nextRobot = nextState.GetComponent<Robot>();
 
             // Check propagated state
-            if (!nextRobot.PropagateLegMovements()){
-                Vector3 deviation = Vector3.ClampMagnitude(nextRobot.GetDeviation(), dStep);
-                    
-                globalPath[currentGoalID] += deviation;
-                if (voxelMap.GetDiscreteState(globalPoseOrigin) != voxelMap.GetDiscreteState(globalPath[currentGoalID])){
-                    Debug.Log("Inform gPlanner about new weight.");
-                    
-                    voxelMap.SetWeight(voxelMap.GetDiscreteState(globalPoseOrigin), 1.0f);
-                    globalPath = RequestPathAfter(currentGoalID);
-                    globalPoseOrigin = globalPath[currentGoalID];
-                    gPlanner.ShowGlobalPlan(globalPath);
+            Vector3 newDeviation = Vector3.ClampMagnitude(nextRobot.IsPropagatableMovement(), dStep);
+            if (newDeviation != Vector3.zero){
+                deviation += newDeviation;
+                Debug.Log("Impossible to propagate.\n" +
+                    "newDeviation: " + newDeviation + 
+                    ", total deviation: " + deviation);
+                Debug.DrawRay(nextState.position, deviation, Color.black);
+
+                if (voxelMap.GetDiscreteState(relevantGoal) != 
+                    voxelMap.GetDiscreteState(currentGoalPose)){   
+                        Vector3Int additionalAction = voxelMap.GetDiscreteState(currentGoalPose) - 
+                            voxelMap.GetDiscreteState(relevantGoal);
+
+                        Debug.Log("Inform gPlanner about large displacement.\n" + 
+                            voxelMap.GetDiscreteState(relevantGoal) + " -> " + 
+                            voxelMap.GetDiscreteState(currentGoalPose) + "\n" +
+                            additionalAction);
+
+                        currentState = ForgetBranch(relevantGoal); currentState.gameObject.SetActive(true);
+                        voxelMap.SetWeight(voxelMap.GetDiscreteState(relevantGoal), 1.0f);
+                        voxelMap.SetAction(voxelMap.GetDiscreteState(relevantGoal), additionalAction);
+                        RequestNewPathAfter(currentState.position, goalPose);
+                        // 
                 }
                 Destroy(nextState.gameObject);
             } else {
-                nextState.gameObject.name = localStates.Count.ToString();
-
-                localStates.Add(nextState);
-                localStates[localStates.Count - 2].gameObject.SetActive(false);
+                currentState.gameObject.SetActive(false);
+                if (goalToStates.ContainsKey(relevantGoal)){
+                    goalToStates[relevantGoal].Add(nextState);
+                } else {
+                    goalToStates.Add(relevantGoal, new List<Transform>{nextState});
+                }
+                nextState.gameObject.name = voxelMap.GetDiscreteState(relevantGoal).ToString() + 
+                    " local " + (goalToStates[relevantGoal].Count - 1).ToString();
+                currentState = nextState;
+                deviation = Vector3.zero;
             }
             
         }
     }
-    private List<Vector3> RequestPathAfter(int pathID) {
-        List<Vector3> newAfterPath = gPlanner.GetGlobalPlan(globalPath[pathID - 1], goalState.position);
-        List<Vector3> newPath = new List<Vector3>();
-        for (int id = 0; id < pathID; ++id)
-            newPath.Add(globalPath[id]);
-        for (int id = 0; id < newAfterPath.Count; ++id)
-            newPath.Add(newAfterPath[id]);
-        return newPath;
-    }
     public void GetPath(Transform start, Transform goal){
         ClearStates();
-        goalState = goal;
-        globalPath = gPlanner.GetGlobalPlan(start.position, goal.position);
-        
-        gPlanner.ShowGlobalPlan(globalPath);
+        goalPose = goal.position;
+        var globalPathToReach = gPlanner.GetGlobalPlan(start.position, goal.position);
+        foreach (var pose in globalPathToReach) {
+            SetStateToAchieve(pose);
+        }
                 
-        currentGoalID = 0;
-        currentState = Instantiate(runnerState, start.position, start.rotation, transform);
-        currentState.gameObject.name = "local " + localStates.Count.ToString();
-        localStates.Add(currentState);
+        currentState = Instantiate(runnerState, start.position, start.rotation, transform);        
+        Vector3 currentGoalPose = GetRelevantGoal(currentState.position);
+        goalToStates.Add(currentGoalPose, new List<Transform>{currentState});
+        
+        currentState.gameObject.name = "local " + (goalToStates[currentGoalPose].Count - 1).ToString();
         isPlanning = true;
     }
 }
