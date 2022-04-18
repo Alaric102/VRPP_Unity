@@ -24,9 +24,7 @@ public class Robot : MonoBehaviour {
     
     [Header("RR leg variables")]
     private List<Transform> RRjoints = new List<Transform>(4);
-
     private List<Tuple<Vector3, Vector3>> collisionData = new List<Tuple<Vector3, Vector3>>();
-
     void Awake() {
         Initialize();
     }
@@ -251,12 +249,12 @@ public class Robot : MonoBehaviour {
         Vector3 deviation = (bodyCollision.Item2 + solutionFL.Item2 + solutionFR.Item2 + solutionRL.Item2 + solutionRR.Item2) / 4.0f;
         return deviation;
     }
-    public List<Tuple<Vector3, Quaternion>> GetLegMovements(Vector3 deltaTransition, Quaternion deltaRotation, float dStep = 0.05f){
+    public List<Tuple<Vector3, Quaternion>> GetHeapMovements(Vector3 deltaTransition, Quaternion deltaRotation, float dStep = 0.05f){
         // Calculate heap translation and rotation movements
         List<Tuple<Vector3, Quaternion>> res = new List<Tuple<Vector3, Quaternion>>(4);
         foreach (var heapPose in heapRelativePose) {
-            Vector3 deltaTrans = Vector3.ClampMagnitude(deltaTransition, dStep);
             Vector3 deltaRot = Vector3.ClampMagnitude(deltaRotation * heapPose - heapPose, dStep);
+            Vector3 deltaTrans = Vector3.ClampMagnitude(deltaTransition, dStep);
             res.Add(new Tuple<Vector3, Quaternion>(deltaTrans, Quaternion.FromToRotation(heapPose, heapPose + deltaRot)));
         }
         return res;
