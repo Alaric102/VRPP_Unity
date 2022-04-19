@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -13,7 +14,8 @@ public class LocalPlanner : MonoBehaviour {
     private List<Transform> reachedStates = new List<Transform>();
     private Transform currentState = null, goalState = null, globalStatePrefab;
     private bool isPlanning = false;
-    public Vector3 deviation = Vector3.zero;
+    private DateTime computingTime;
+    private Vector3 deviation = Vector3.zero;
     private void ClearStates(){ // Clear all local planner states, achieved states and states to acheive
         ClearStatesToAchieve();
         ClearAcheivedStates();
@@ -88,8 +90,8 @@ public class LocalPlanner : MonoBehaviour {
     private Vector3 GetLastReachedGoal(int shift = 0){
         if (reachedStates.Count < (1 + shift)){
             Debug.Log("reachedStates.count" + reachedStates.Count + " < " + (1 + shift));
-            var lastAvailableStates = goalsToStates[toAcheiveState.Peek().position];
-            return lastAvailableStates[0].position;
+            // var lastAvailableStates = goalsToStates[toAcheiveState.Peek().position];
+            return toAcheiveState.Peek().position;
         }
         return reachedStates[reachedStates.Count - (1 + shift)].position;
     }
@@ -118,6 +120,7 @@ public class LocalPlanner : MonoBehaviour {
     }
     void Update() {
         if (isPlanning){
+            // float timeStart = DateTime.Now.Ticks / 
             Vector3 actualGoal = GetRelevantGoal(currentState.position);
             if (actualGoal == currentState.position){
                 isPlanning = false;
@@ -133,7 +136,6 @@ public class LocalPlanner : MonoBehaviour {
                 DrawDirection(currentState.position, deltaDirection);
                 Debug.DrawRay(currentState.position, deltaRotation.eulerAngles, Color.white);
                 Debug.DrawLine(currentState.position, correctedGoal, Color.yellow);
-                
                 // Debug.Log("deltaPose: " + deltaPose.magnitude + "\n" + 
                 //     "deltaRotation.eulerAngles: " + deltaRotation.eulerAngles);
             }
@@ -162,15 +164,25 @@ public class LocalPlanner : MonoBehaviour {
             Vector3 newDeviation = Vector3.ClampMagnitude(nextRobot.IsPropagatableMovement(), dStep);
             if (newDeviation != Vector3.zero){
                 deviation += newDeviation;
-                Debug.Log("Impossible to propagate.\n" +
-                    "newDeviation: " + newDeviation + 
-                    ", total deviation: " + deviation);
-                Debug.DrawRay(nextState.position, deviation, Color.black);
-                voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), 1.0f);
+                
+                { //Strategy for small deviation
+                    // voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), 1.0f);
+                    Vector3 lastReachedPose = GetLastReachedGoal(0);
+                    Vector3Int action = voxelMap.GetDiscreteState(actualGoal) - voxelMap.GetDiscreteState(lastReachedPose);
+                    gPlanner.SetActionCost(action, voxelMap.GetDiscreteState(lastReachedPose), 0.5f);
+                }
+                
+                {
+                    Debug.Log("Impossible to propagate." +
+                        " NewDeviation: " + newDeviation.magnitude + ", total deviation: " + deviation.magnitude);
+                    Debug.DrawRay(nextState.position, deviation, Color.black);
+                }
 
                 if (voxelMap.GetDiscreteState(actualGoal) != voxelMap.GetDiscreteState(correctedGoal)){   
                     // Set weight to bad actualGoal and descrete nextState
-                    voxelMap.SetWeight(voxelMap.GetDiscreteState(actualGoal), 1.0f);
+                    {   // Strategy for large deviations
+                        voxelMap.SetWeight(voxelMap.GetDiscreteState(actualGoal), 1.0f);
+                    }
 
                     Vector3 lastReachedPose = GetLastReachedGoal(1);
                     ForgetReachedAfter(lastReachedPose);

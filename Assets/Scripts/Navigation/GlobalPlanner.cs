@@ -8,6 +8,8 @@ public class GlobalPlanner : MonoBehaviour {
     public int UpDownTh = 3;
     List<Tuple<float, Vector3Int>> sortedQueue = new List<Tuple<float, Vector3Int>>();
     private Dictionary<Vector3Int, float> visitedStates = new Dictionary<Vector3Int, float>();
+    private Dictionary<Vector3Int, Dictionary<Vector3Int, float>> actionMap = 
+        new Dictionary<Vector3Int, Dictionary<Vector3Int, float>>();
     private Transform startState, goalState, gPlanState;
     private List<Transform> globalPlanStates = new List<Transform>();
     private class Graph {
@@ -65,10 +67,10 @@ public class GlobalPlanner : MonoBehaviour {
             sortedQueue.Add(new Tuple<float, Vector3Int>(cost, v));
         }
     }
-    private List<Vector3Int> GetActionSpace(Vector3Int state){
+    private List<Vector3Int> GetActionSpace(){
         List<Vector3Int> actionSpace = new List<Vector3Int>();
         for (int x = -1; x <= 1; ++x)
-            for (int y = 0; y <= 0; ++y)
+            for (int y = -1; y <= 1; ++y)
                 for (int z = -1; z <= 1; ++z){
                     if ((x == 0) && (z == 0) && (y == 0))
                             continue;
@@ -76,20 +78,41 @@ public class GlobalPlanner : MonoBehaviour {
                 }
         return actionSpace;
     }
-    private float GetActionCost(Vector3Int v){
-        return (v.y != 0) ? (1 + 0.0f) : 1.0f;
+    public void SetActionCost(Vector3Int action, Vector3Int state, float cost){
+        if (actionMap.ContainsKey(state)){
+            if (actionMap[state].ContainsKey(action)){
+                actionMap[state][action] += cost;
+            } else {
+                actionMap[state].Add(action, cost);
+            }
+        } else {
+            actionMap.Add(state, new Dictionary<Vector3Int, float>(){
+                {action, cost} }
+            );
+        }
+    }
+    private float GetActionCost(Vector3Int action, Vector3Int state){
+        float additionalCost = 0.0f;
+        if (actionMap.ContainsKey(state)){
+            var actions = actionMap[state];
+            if (actions.ContainsKey(action)){
+                additionalCost = actions[action];
+            }
+        }
+        return 1 + additionalCost;
     }
     private float GetHeuristics(Vector3Int v){
         return v.magnitude;
     }
     private Vector3Int GetFeasibleState(Vector3 v){
         Vector3Int vDiscrete = voxelMap.GetDiscreteState(v);
-        while (voxelMap.IsObstacle(vDiscrete))
-            vDiscrete.y += 1;
-        while (!voxelMap.IsObstacle(vDiscrete + new Vector3Int(0, -1, 0)) && vDiscrete.y >= 0)
-            vDiscrete += new Vector3Int(0, -1, 0);
+        // while (voxelMap.IsObstacle(vDiscrete))
+        //     vDiscrete.y += 1;
+        // while (!voxelMap.IsObstacle(vDiscrete + new Vector3Int(0, -1, 0)) && vDiscrete.y >= 0)
+        //     vDiscrete += new Vector3Int(0, -1, 0);
         return vDiscrete;
     }
+    
     public List<Vector3> GetGlobalPlan(Vector3 start, Vector3 goal){
         Vector3Int startStateDescrete = GetFeasibleState(start);
         Vector3Int goalStateDescrete = GetFeasibleState(goal);
@@ -109,60 +132,65 @@ public class GlobalPlanner : MonoBehaviour {
                 return GetContinuousPlan(pathDiscrete);
             }
 
-            List<Vector3Int> actions = GetActionSpace(currentState);
+            List<Vector3Int> actions = GetActionSpace();
             foreach (Vector3Int act in actions) {
                 Vector3Int action = act;
                 Vector3Int nextState = currentState + action;
                 if (voxelMap.IsObstacle(nextState)){
                     visitedStates[nextState] = Mathf.Infinity;
 
-                    Vector3Int lifting = new Vector3Int(0, 1, 0);
-                    while (voxelMap.IsObstacle(nextState + lifting) && (Mathf.Abs(lifting.y) < UpDownTh)){
-                        visitedStates[nextState + lifting] = Mathf.Infinity;
-                        lifting.y += 1;
-                    }
-                    if (voxelMap.IsObstacle(nextState + lifting)){
-                        visitedStates[nextState] = Mathf.Infinity;
-                        continue;
-                    } else {
-                        if (Mathf.Abs(action.x) == Mathf.Abs(action.z)){
-                            continue;
-                        } else {
-                            action += lifting;
-                            nextState += lifting;
-                        }
+                    {
+                        // Vector3Int lifting = new Vector3Int(0, 1, 0);
+                        // while (voxelMap.IsObstacle(nextState + lifting) && (Mathf.Abs(lifting.y) < UpDownTh)){
+                        //     visitedStates[nextState + lifting] = Mathf.Infinity;
+                        //     lifting.y += 1;
+                        // }
+                        // if (voxelMap.IsObstacle(nextState + lifting)){
+                        //     visitedStates[nextState] = Mathf.Infinity;
+                        //     continue;
+                        // } else {
+                        //     if (Mathf.Abs(action.x) == Mathf.Abs(action.z)){
+                        //         continue;
+                        //     } else {
+                        //         action += lifting;
+                        //         nextState += lifting;
+                        //     }
+                        // }
                     }
                 }
-
-                Vector3Int descent = new Vector3Int(0, -1, 0);
-                while (!voxelMap.IsObstacle(nextState + descent) && (Mathf.Abs(descent.y) < UpDownTh)){
-                    descent.y -= 1;
+                
+                {
+                    // Vector3Int descent = new Vector3Int(0, -1, 0);
+                    // while (!voxelMap.IsObstacle(nextState + descent) && (Mathf.Abs(descent.y) < UpDownTh)){
+                    //     descent.y -= 1;
+                    // }
+                    // if (voxelMap.IsObstacle(nextState + descent)){
+                    //     descent.y += 1;
+                    //     if (descent.y != 0 && (Mathf.Abs(action.x) == Mathf.Abs(action.z))){
+                    //         continue;
+                    //     } else {
+                    //         action += descent;
+                    //         nextState += descent;
+                    //     }
+                    // } else {
+                    //     continue;
+                    // }
+                    // action += voxelMap.GetAction(currentState);
+                    // nextState += voxelMap.GetAction(currentState);
                 }
-                if (voxelMap.IsObstacle(nextState + descent)){
-                    descent.y += 1;
-                    if (descent.y != 0 && (Mathf.Abs(action.x) == Mathf.Abs(action.z))){
-                        continue;
-                    } else {
-                        action += descent;
-                        nextState += descent;
-                    }
-                } else {
-                    continue;
-                }
-                action += voxelMap.GetAction(currentState);
-                nextState += voxelMap.GetAction(currentState);
 
                 bool isVisited = visitedStates.ContainsKey(nextState);
                 float currentCost = visitedStates[currentState];
                 if (isVisited){
-                    float newCost = currentCost + GetActionCost(action);
+                    // Additional Cost for action from currentState
+                    float newCost = currentCost + GetActionCost(action, currentState);
                     float prevCost = visitedStates[nextState];
                     if (newCost < prevCost){
                         visitedStates[nextState] = newCost;
                         graph.Append(nextState, currentState);
                     }
                 } else {
-                    float nextCost = currentCost + GetActionCost(action);
+                    float nextCost = currentCost + GetActionCost(action, currentState);
                     // Additional cost from learned cost map
                     nextCost += voxelMap.GetWeigth(nextState);
                     visitedStates.Add(nextState, nextCost);

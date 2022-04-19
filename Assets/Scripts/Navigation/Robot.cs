@@ -217,7 +217,8 @@ public class Robot : MonoBehaviour {
         var solutions = FindFeasibleLegSolutions(joints, InverseFunction, false);
         //if no solutions exist
         if (solutions.Count == 0){
-            return new Tuple<bool, Vector3>(false, Vector3.zero);
+            return new Tuple<bool, Vector3>(false, -Vector3.up);
+            // return new Tuple<bool, Vector3>(false, Vector3.zero);
         }
         
         Vector3 meanNormal = Vector3.zero;
