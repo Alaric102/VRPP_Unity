@@ -133,89 +133,93 @@ public class LocalPlanner : MonoBehaviour {
             Quaternion deltaDirection = GetDeltaAlignedOrigin(deltaPose);
             Quaternion deltaRotation = deltaDirection * Quaternion.Inverse(currentState.rotation);
             { // Draw deltaDirection origin
-                DrawDirection(currentState.position, deltaDirection);
-                Debug.DrawRay(currentState.position, deltaRotation.eulerAngles, Color.white);
-                Debug.DrawLine(currentState.position, correctedGoal, Color.yellow);
+                // DrawDirection(currentState.position, deltaDirection);
+                // Debug.DrawRay(currentState.position, deltaRotation.eulerAngles, Color.white);
+                // Debug.DrawLine(currentState.position, correctedGoal, Color.yellow);
                 // Debug.Log("deltaPose: " + deltaPose.magnitude + "\n" + 
                 //     "deltaRotation.eulerAngles: " + deltaRotation.eulerAngles);
             }
             
-            // Calculate mean clamped delta of tarnsition and rotation by each leg
-            Robot currentRobot = currentState.GetComponent<Robot>();
-            List<Tuple<Vector3, Quaternion>> legMovements = 
-                currentRobot.GetHeapMovements(deltaPose, deltaRotation, dStep);
-            Vector3 meanTransition = Vector3.zero;
-            Quaternion meanRotation = Quaternion.identity;
-            foreach (var item in legMovements) {
-                meanTransition = Vector3.Lerp(meanTransition, item.Item1, 0.5f);
-                meanRotation = Quaternion.Lerp(meanRotation, item.Item2, 0.5f);
-            }
-            {
-                Debug.DrawRay(currentState.position, meanTransition);
-                Debug.DrawRay(currentState.position, meanRotation.eulerAngles);
-            }
+            // // Calculate mean clamped delta of tarnsition and rotation by each leg
+            // Robot currentRobot = currentState.GetComponent<Robot>();
+            // List<Tuple<Vector3, Quaternion>> legMovements = 
+            //     currentRobot.GetHeapMovements(deltaPose, deltaRotation, dStep);
+            // Vector3 meanTransition = Vector3.zero;
+            // Quaternion meanRotation = Quaternion.identity;
+            // foreach (var item in legMovements) {
+            //     meanTransition = Vector3.Lerp(meanTransition, item.Item1, 0.5f);
+            //     meanRotation = Quaternion.Lerp(meanRotation, item.Item2, 0.5f);
+            // }
+            // {
+            //     Debug.DrawRay(currentState.position, meanTransition, Color.yellow);
+            //     Debug.DrawRay(currentState.position, meanRotation.eulerAngles, Color.red);
+            // }
 
             // Propagate to next state
-            Transform nextState = Instantiate(robotPrefab, currentState.position + meanTransition, 
-                meanRotation * currentState.rotation,  transform);
-            Robot nextRobot = nextState.GetComponent<Robot>();
+            // Transform nextState = Instantiate(robotPrefab, currentState.position + meanTransition, 
+            //     meanRotation * currentState.rotation,  transform);
+            // Robot nextRobot = nextState.GetComponent<Robot>();
+            
+            // nextRobot.activeLeg = currentRobot.activeLeg;
+            // var lastPotentials = currentRobot.GetFeasibleLegDirections();
+            // nextRobot.GetLegPropagations(meanTransition, meanRotation, lastPotentials);
 
             // Check propagated state
-            Vector3 newDeviation = Vector3.ClampMagnitude(nextRobot.IsPropagatableMovement(), dStep);
-            if (newDeviation != Vector3.zero){
-                deviation += newDeviation;
+            // Vector3 newDeviation = Vector3.ClampMagnitude(nextRobot.IsPropagatableMovement(), dStep);
+            // if (newDeviation != Vector3.zero){
+            //     deviation += newDeviation;
                 
-                { //Strategy for small deviation
-                    // voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), 1.0f);
-                    Vector3 lastReachedPose = GetLastReachedGoal(0);
-                    Vector3Int action = voxelMap.GetDiscreteState(actualGoal) - voxelMap.GetDiscreteState(lastReachedPose);
-                    gPlanner.SetActionCost(action, voxelMap.GetDiscreteState(lastReachedPose), 0.5f);
-                }
+            //     { //Strategy for small deviation
+            //         // voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), 1.0f);
+            //         Vector3 lastReachedPose = GetLastReachedGoal(0);
+            //         Vector3Int action = voxelMap.GetDiscreteState(actualGoal) - voxelMap.GetDiscreteState(lastReachedPose);
+            //         gPlanner.SetActionCost(action, voxelMap.GetDiscreteState(lastReachedPose), 0.5f);
+            //     }
                 
-                {
-                    Debug.Log("Impossible to propagate." +
-                        " NewDeviation: " + newDeviation.magnitude + ", total deviation: " + deviation.magnitude);
-                    Debug.DrawRay(nextState.position, deviation, Color.black);
-                }
+            //     {
+            //         Debug.Log("Impossible to propagate." +
+            //             " NewDeviation: " + newDeviation.magnitude + ", total deviation: " + deviation.magnitude);
+            //         Debug.DrawRay(nextState.position, deviation, Color.black);
+            //     }
 
-                if (voxelMap.GetDiscreteState(actualGoal) != voxelMap.GetDiscreteState(correctedGoal)){   
-                    // Set weight to bad actualGoal and descrete nextState
-                    {   // Strategy for large deviations
-                        voxelMap.SetWeight(voxelMap.GetDiscreteState(actualGoal), 1.0f);
-                    }
+            //     if (voxelMap.GetDiscreteState(actualGoal) != voxelMap.GetDiscreteState(correctedGoal)){   
+            //         // Set weight to bad actualGoal and descrete nextState
+            //         {   // Strategy for large deviations
+            //             voxelMap.SetWeight(voxelMap.GetDiscreteState(actualGoal), 1.0f);
+            //         }
 
-                    Vector3 lastReachedPose = GetLastReachedGoal(1);
-                    ForgetReachedAfter(lastReachedPose);
-                    ForgetBranchToGoal(actualGoal);
-                    currentState = goalsToStates[lastReachedPose][goalsToStates[lastReachedPose].Count - 1];
-                    currentState.gameObject.SetActive(true);
-                    GetNewGlobalPlan(currentState, goalState);
+            //         Vector3 lastReachedPose = GetLastReachedGoal(1);
+            //         ForgetReachedAfter(lastReachedPose);
+            //         ForgetBranchToGoal(actualGoal);
+            //         currentState = goalsToStates[lastReachedPose][goalsToStates[lastReachedPose].Count - 1];
+            //         currentState.gameObject.SetActive(true);
+            //         GetNewGlobalPlan(currentState, goalState);
 
-                    Debug.Log("Inform gPlanner about large displacement.\n" + 
-                        voxelMap.GetDiscreteState(actualGoal) + " -> " + 
-                        voxelMap.GetDiscreteState(correctedGoal) );
+            //         Debug.Log("Inform gPlanner about large displacement.\n" + 
+            //             voxelMap.GetDiscreteState(actualGoal) + " -> " + 
+            //             voxelMap.GetDiscreteState(correctedGoal) );
 
-                    // Reset deviation
-                    deviation = Vector3.zero;
-                }
+            //         // Reset deviation
+            //         deviation = Vector3.zero;
+            //     }
 
-                // nextState is invalid for further propagation
-                Destroy(nextState.gameObject);
-            } else {
-                // Append next state to actualGoal
-                if (goalsToStates.ContainsKey(actualGoal))
-                    goalsToStates[actualGoal].Add(nextState);
-                else
-                    goalsToStates.Add(actualGoal, new List<Transform>{nextState});
+            //     // nextState is invalid for further propagation
+            //     Destroy(nextState.gameObject);
+            // } else {
+            //     // Append next state to actualGoal
+                // if (goalsToStates.ContainsKey(actualGoal))
+                //     goalsToStates[actualGoal].Add(nextState);
+                // else
+                //     goalsToStates.Add(actualGoal, new List<Transform>{nextState});
                 
-                nextState.gameObject.name = voxelMap.GetDiscreteState(actualGoal).ToString() + 
-                    " local " + (goalsToStates[actualGoal].Count - 1).ToString();
-                currentState.gameObject.SetActive(false);
+                // nextState.gameObject.name = voxelMap.GetDiscreteState(actualGoal).ToString() + 
+                //     " local " + (goalsToStates[actualGoal].Count - 1).ToString();
+                // currentState.gameObject.SetActive(false);
 
-                // reset deviation for next propagation
-                deviation = Vector3.zero;
-                currentState = nextState;
-            }
+                // // reset deviation for next propagation
+                // deviation = Vector3.zero;
+                // currentState = nextState;
+            // }
         }
     }
     public void GetPath(Transform start, Transform goal){
@@ -228,7 +232,14 @@ public class LocalPlanner : MonoBehaviour {
             Destroy(currentState.gameObject);
         currentState = Instantiate(robotPrefab, start.position, start.rotation, transform);
         currentState.gameObject.SetActive(true);
-        
+        var currentRobot = currentState.GetComponent<Robot>();
+
+        // Resolve leg positions
+        // currentRobot.activeLeg = -1;
+        // List<Vector3> lastResolved = new List<Vector3>{-Vector3.up, -Vector3.up, -Vector3.up, -Vector3.up};
+        // currentRobot.GetLegPropagations(Vector3.zero, Quaternion.identity, lastResolved);
+        // currentRobot.activeLeg = 0;
+
         // Append initial currentState to first relevant goal
         Vector3 actualGoal = GetRelevantGoal(currentState.position);
         goalsToStates.Add(actualGoal, new List<Transform>{currentState});
