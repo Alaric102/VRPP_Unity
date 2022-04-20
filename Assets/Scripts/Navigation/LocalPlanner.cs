@@ -8,7 +8,7 @@ public class LocalPlanner : MonoBehaviour {
     public VoxelMap voxelMap = null;
     public Transform robotPrefab = null;
     private GlobalPlanner gPlanner = null;
-    public float dStep = 0.05f;
+    private float dStep = 0.015f;
     private Dictionary<Vector3, List<Transform>> goalsToStates = new Dictionary<Vector3, List<Transform>>();
     private Queue<Transform> toAcheiveState = new Queue<Transform>();
     private List<Transform> reachedStates = new List<Transform>();
@@ -16,6 +16,7 @@ public class LocalPlanner : MonoBehaviour {
     private bool isPlanning = false;
     private DateTime computingTime;
     private Vector3 deviation = Vector3.zero;
+    public List<Vector3> accumulatedStepLength = new List<Vector3>();
     private void ClearStates(){ // Clear all local planner states, achieved states and states to acheive
         ClearStatesToAchieve();
         ClearAcheivedStates();
@@ -139,30 +140,44 @@ public class LocalPlanner : MonoBehaviour {
                 // Debug.Log("deltaPose: " + deltaPose.magnitude + "\n" + 
                 //     "deltaRotation.eulerAngles: " + deltaRotation.eulerAngles);
             }
-            
-            // // Calculate mean clamped delta of tarnsition and rotation by each leg
-            // Robot currentRobot = currentState.GetComponent<Robot>();
-            // List<Tuple<Vector3, Quaternion>> legMovements = 
-            //     currentRobot.GetHeapMovements(deltaPose, deltaRotation, dStep);
-            // Vector3 meanTransition = Vector3.zero;
-            // Quaternion meanRotation = Quaternion.identity;
-            // foreach (var item in legMovements) {
-            //     meanTransition = Vector3.Lerp(meanTransition, item.Item1, 0.5f);
-            //     meanRotation = Quaternion.Lerp(meanRotation, item.Item2, 0.5f);
-            // }
-            // {
-            //     Debug.DrawRay(currentState.position, meanTransition, Color.yellow);
-            //     Debug.DrawRay(currentState.position, meanRotation.eulerAngles, Color.red);
-            // }
+            // Clamp delta of tarnsition and rotation
+            deltaPose = Vector3.ClampMagnitude(deltaPose, dStep);
+            deltaRotation = Quaternion.Euler(Vector3.ClampMagnitude(deltaRotation.eulerAngles, dStep));
+            {
+                Debug.DrawRay(currentState.position, deltaPose, Color.yellow);
+                Debug.DrawRay(currentState.position, deltaRotation.eulerAngles, Color.red);
+            }
+
 
             // Propagate to next state
-            // Transform nextState = Instantiate(robotPrefab, currentState.position + meanTransition, 
-            //     meanRotation * currentState.rotation,  transform);
-            // Robot nextRobot = nextState.GetComponent<Robot>();
+            Robot currentRobot = currentState.GetComponent<Robot>();
+            Transform nextState = Instantiate(robotPrefab, currentState.position + deltaPose, 
+                deltaRotation * currentState.rotation,  transform);
+            Robot nextRobot = nextState.GetComponent<Robot>();
+            nextRobot.activeLeg = currentRobot.activeLeg;
+            nextRobot.accDeltaStep = currentRobot.accDeltaStep;
+            nextRobot.accActiveDelta = currentRobot.accActiveDelta;
+            // Propagate Legs to next Step
+            List<Vector3> lastDirecction =  currentRobot.GetFeasibleLegDirections();
+            List<Vector3> nextDirections = nextRobot.GetLegDirectionsByMotion(deltaPose, deltaRotation, lastDirecction, true);
+            // nextDirections = nextRobot.GetLegDirectionsByGait(lastDirecction, nextDirections, true);
+            nextRobot.GetLegPropagations(nextDirections);
+
             
-            // nextRobot.activeLeg = currentRobot.activeLeg;
-            // var lastPotentials = currentRobot.GetFeasibleLegDirections();
-            // nextRobot.GetLegPropagations(meanTransition, meanRotation, lastPotentials);
+            if (nextRobot.accActiveDelta.magnitude > 0.02f){
+                nextRobot.accActiveDelta = Vector3.zero;
+                nextRobot.activeLeg = (nextRobot.activeLeg + 1) % 4;
+            }
+            // nextRobot.activeLeg = (currentRobot.activeLeg + 1) % 4;
+            // var stepDeltas = nextRobot.GetLegPropagations(meanTransition, meanRotation, lastPotentials);
+            // for (int i = 0; i < accumulatedStepLength.Count; ++i){
+            //     accumulatedStepLength[i] += stepDeltas[i];
+            //     Debug.Log(i + ": " + accumulatedStepLength[i].magnitude);
+            //     if (accumulatedStepLength[i].magnitude > 0.005){
+            //         nextRobot.activeLeg = i;
+            //         accumulatedStepLength[i] = Vector3.zero;
+            //     }
+            // }
 
             // Check propagated state
             // Vector3 newDeviation = Vector3.ClampMagnitude(nextRobot.IsPropagatableMovement(), dStep);
@@ -207,18 +222,18 @@ public class LocalPlanner : MonoBehaviour {
             //     Destroy(nextState.gameObject);
             // } else {
             //     // Append next state to actualGoal
-                // if (goalsToStates.ContainsKey(actualGoal))
-                //     goalsToStates[actualGoal].Add(nextState);
-                // else
-                //     goalsToStates.Add(actualGoal, new List<Transform>{nextState});
+                if (goalsToStates.ContainsKey(actualGoal))
+                    goalsToStates[actualGoal].Add(nextState);
+                else
+                    goalsToStates.Add(actualGoal, new List<Transform>{nextState});
                 
-                // nextState.gameObject.name = voxelMap.GetDiscreteState(actualGoal).ToString() + 
-                //     " local " + (goalsToStates[actualGoal].Count - 1).ToString();
-                // currentState.gameObject.SetActive(false);
+                nextState.gameObject.name = voxelMap.GetDiscreteState(actualGoal).ToString() + 
+                    " local " + (goalsToStates[actualGoal].Count - 1).ToString();
+                currentState.gameObject.SetActive(false);
 
-                // // reset deviation for next propagation
-                // deviation = Vector3.zero;
-                // currentState = nextState;
+                // reset deviation for next propagation
+                deviation = Vector3.zero;
+                currentState = nextState;
             // }
         }
     }
@@ -235,10 +250,14 @@ public class LocalPlanner : MonoBehaviour {
         var currentRobot = currentState.GetComponent<Robot>();
 
         // Resolve leg positions
-        // currentRobot.activeLeg = -1;
-        // List<Vector3> lastResolved = new List<Vector3>{-Vector3.up, -Vector3.up, -Vector3.up, -Vector3.up};
-        // currentRobot.GetLegPropagations(Vector3.zero, Quaternion.identity, lastResolved);
-        // currentRobot.activeLeg = 0;
+        currentRobot.activeLeg = -1;
+        List<Vector3> lastResolved = new List<Vector3>{-Vector3.up, -Vector3.up, -Vector3.up, -Vector3.up};
+        currentRobot.GetLegPropagations(lastResolved);
+        currentRobot.activeLeg = 0;
+        currentRobot.accDeltaStep.Add(Vector3.zero);
+        currentRobot.accDeltaStep.Add(Vector3.zero);
+        currentRobot.accDeltaStep.Add(Vector3.zero);
+        currentRobot.accDeltaStep.Add(Vector3.zero);
 
         // Append initial currentState to first relevant goal
         Vector3 actualGoal = GetRelevantGoal(currentState.position);
