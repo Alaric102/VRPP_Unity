@@ -13,7 +13,7 @@ public class LocalPlanner : MonoBehaviour {
     private Queue<Transform> toAcheiveState = new Queue<Transform>();
     private List<Transform> reachedStates = new List<Transform>();
     private Transform currentState = null, goalState = null, globalStatePrefab;
-    private bool isPlanning = false;
+    private bool isPlanning = false, isFinished = false;
     private DateTime computingTime;
     private Vector3 deviation = Vector3.zero;
     public List<Vector3> accumulatedStepLength = new List<Vector3>();
@@ -126,6 +126,7 @@ public class LocalPlanner : MonoBehaviour {
             Vector3 actualGoal = GetRelevantGoal(currentState.position);
             if (actualGoal == currentState.position){
                 isPlanning = false;
+                isFinished = true;
                 Debug.Log("Local Planner is Finished");
                 return;
             }
@@ -158,73 +159,53 @@ public class LocalPlanner : MonoBehaviour {
             // Find prime leg directions from last motion
             List<Robot.Potential> lastDirecction =  currentRobot.resolvedPotentials;
             List<Vector3> nextDirections = nextRobot.GetLegDirectionsByMotion(heapMovements, lastDirecction, true);
-            // nextRobot.GetLegPropagations(nextDirections);
-            
-
-            // var stepDeltas = nextRobot.GetLegPropagations(meanTransition, meanRotation, lastPotentials);
-            // for (int i = 0; i < accumulatedStepLength.Count; ++i){
-            //     accumulatedStepLength[i] += stepDeltas[i];
-            //     Debug.Log(i + ": " + accumulatedStepLength[i].magnitude);
-            //     if (accumulatedStepLength[i].magnitude > 0.005){
-            //         nextRobot.activeLeg = i;
-            //         accumulatedStepLength[i] = Vector3.zero;
-            //     }
-            // }
 
             // Check propagated state
-            // Vector3 newDeviation = Vector3.ClampMagnitude(nextRobot.IsPropagatableMovement(), dStep);
             if (!nextRobot.IsPropagatable(nextDirections)){
-            //     deviation += newDeviation;
+                Vector3 newDeviation = nextRobot.GetDeviationVector();
+                deviation += newDeviation;
+
+                { //Strategy for small deviation
+                    // voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), 1.0f);
+                    Vector3 lastReachedPose = GetLastReachedGoal(0);
+                    Vector3Int action = voxelMap.GetDiscreteState(actualGoal) - voxelMap.GetDiscreteState(lastReachedPose);
+                    gPlanner.SetActionCost(action, voxelMap.GetDiscreteState(lastReachedPose), newDeviation.magnitude);
+                }
                 
-            //     { //Strategy for small deviation
-            //         // voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), 1.0f);
-            //         Vector3 lastReachedPose = GetLastReachedGoal(0);
-            //         Vector3Int action = voxelMap.GetDiscreteState(actualGoal) - voxelMap.GetDiscreteState(lastReachedPose);
-            //         gPlanner.SetActionCost(action, voxelMap.GetDiscreteState(lastReachedPose), 0.5f);
-            //     }
-                
-            //     {
-            //         Debug.Log("Impossible to propagate." +
-            //             " NewDeviation: " + newDeviation.magnitude + ", total deviation: " + deviation.magnitude);
-            //         Debug.DrawRay(nextState.position, deviation, Color.black);
-            //     }
+                {
+                    Debug.Log("Impossible to propagate." +
+                        " NewDeviation: " + newDeviation.magnitude + ", total deviation: " + deviation.magnitude);
+                    Debug.DrawRay(nextState.position, deviation, Color.black);
+                }
 
-            //     if (voxelMap.GetDiscreteState(actualGoal) != voxelMap.GetDiscreteState(correctedGoal)){   
-            //         // Set weight to bad actualGoal and descrete nextState
-            //         {   // Strategy for large deviations
-            //             voxelMap.SetWeight(voxelMap.GetDiscreteState(actualGoal), 1.0f);
-            //         }
+                if (voxelMap.GetDiscreteState(actualGoal) != voxelMap.GetDiscreteState(correctedGoal)){   
+                    // Set weight to bad actualGoal and descrete nextState
+                    {   // Strategy for large deviations
+                        voxelMap.SetWeight(voxelMap.GetDiscreteState(actualGoal), 1.0f);
+                    }
 
-            //         Vector3 lastReachedPose = GetLastReachedGoal(1);
-            //         ForgetReachedAfter(lastReachedPose);
-            //         ForgetBranchToGoal(actualGoal);
-            //         currentState = goalsToStates[lastReachedPose][goalsToStates[lastReachedPose].Count - 1];
-            //         currentState.gameObject.SetActive(true);
-            //         GetNewGlobalPlan(currentState, goalState);
+                    Vector3 lastReachedPose = GetLastReachedGoal(0);
+                    ForgetReachedAfter(lastReachedPose);
+                    ForgetBranchToGoal(actualGoal);
+                    currentState = goalsToStates[lastReachedPose][goalsToStates[lastReachedPose].Count - 1];
+                    currentState.gameObject.SetActive(true);
+                    GetNewGlobalPlan(currentState, goalState);
 
-            //         Debug.Log("Inform gPlanner about large displacement.\n" + 
-            //             voxelMap.GetDiscreteState(actualGoal) + " -> " + 
-            //             voxelMap.GetDiscreteState(correctedGoal) );
+                    Debug.Log("Inform gPlanner about large displacement.\n" + 
+                        voxelMap.GetDiscreteState(actualGoal) + " -> " + 
+                        voxelMap.GetDiscreteState(correctedGoal) );
 
-            //         // Reset deviation
-            //         deviation = Vector3.zero;
-            //     }
-
-            //     // nextState is invalid for further propagation
-            //     Destroy(nextState.gameObject);
+                    // Reset deviation
+                    deviation = Vector3.zero;
+                }
+                // nextState is invalid for further propagation
+                Destroy(nextState.gameObject);
             } else {
                 // Append next state to actualGoal
                 if (goalsToStates.ContainsKey(actualGoal))
                     goalsToStates[actualGoal].Add(nextState);
                 else
                     goalsToStates.Add(actualGoal, new List<Transform>{nextState});
-                
-                int nextActive = nextRobot.FindActiveLeg(nextDirections);
-                if (nextRobot.activeLeg != nextActive){
-                    nextRobot.activeLeg = nextActive;
-                    nextRobot.accActiveDelta = Vector3.zero;
-                    Debug.Log("next leg: " + nextActive);
-                }
 
                 nextState.gameObject.name = voxelMap.GetDiscreteState(actualGoal).ToString() + 
                     " local " + (goalsToStates[actualGoal].Count - 1).ToString();
@@ -234,6 +215,8 @@ public class LocalPlanner : MonoBehaviour {
                 deviation = Vector3.zero;
                 currentState = nextState;
             }
+        } else if (isFinished){
+
         }
     }
     public void GetPath(Transform start, Transform goal){
@@ -247,23 +230,20 @@ public class LocalPlanner : MonoBehaviour {
         currentState = Instantiate(robotPrefab, start.position, start.rotation, transform);
         currentState.gameObject.SetActive(true);
         var currentRobot = currentState.GetComponent<Robot>();
-
+        currentRobot.accDeltaStep.Add(Vector3.zero);
+        currentRobot.accDeltaStep.Add(Vector3.zero);
+        currentRobot.accDeltaStep.Add(Vector3.zero);
+        currentRobot.accDeltaStep.Add(Vector3.zero);
         // Resolve leg positions
         currentRobot.activeLeg = -1;
 
         List<Vector3> lastResolved = new List<Vector3>{-Vector3.up, -Vector3.up, -Vector3.up, -Vector3.up};
-
-        // currentRobot.GetLegPropagations(lastResolved);
         var isOkay = currentRobot.IsPropagatable(lastResolved);
         Debug.Log(isOkay);
         List<Robot.Potential> resolvedPotentials = currentRobot.resolvedPotentials;
         
 
         currentRobot.activeLeg = 0;
-        currentRobot.accDeltaStep.Add(0.0f);
-        currentRobot.accDeltaStep.Add(0.0f);
-        currentRobot.accDeltaStep.Add(0.0f);
-        currentRobot.accDeltaStep.Add(0.0f);
 
         // Append initial currentState to first relevant goal
         Vector3 actualGoal = GetRelevantGoal(currentState.position);
