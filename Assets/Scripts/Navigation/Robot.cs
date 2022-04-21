@@ -5,6 +5,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class Robot : MonoBehaviour {
+    private bool isShowPotentialsSphere = false;
+    private bool isShowFeasiblePotentials = true;
+    private bool isShowObstacleFreePotentials = false;
+    private bool isShowInCollision = false;
     private class Leg {
         public Leg(Transform robot, Transform zeroJoint){
             joint0 = zeroJoint;
@@ -30,8 +34,8 @@ public class Robot : MonoBehaviour {
     private List<float> jointDistances = new List<float>(3);
     private List<Vector3> heapRelativePose = new List<Vector3>(4);
     public float discretization = 0.5f;
-    public List<float> maxAngles = new List<float>{90.0f, 180.0f, 180.0f};
-    public List<float> minAngles = new List<float>{-90.0f, -180.0f, -180.0f};
+    private List<float> maxAngles = new List<float>{90.0f, 180.0f, 180.0f};
+    public List<float> minAngles = new List<float>{-90.0f, -180.0f, -0.0f};
     public float minDistance = 0.1053526f, maxDistance = 0.3111828f;
     
     [Header("FL leg variables")]
@@ -167,21 +171,25 @@ public class Robot : MonoBehaviour {
     private List<float> ResolveInverseKinematicsRR(Vector3 pos){
         return new List<float>{ GetJoint1Angle(pos, Joint1AngleRightSide), GetJoint2Angle(pos), GetJoint3Angle(pos) };
     }
-    private Tuple<Vector3, Vector3> IsAnglesInCollision(List<Transform> joints, List<float> angles, bool isShow = false){
+    private bool IsAnglesInCollision(List<Transform> joints, List<float> angles, bool isShow = false){
+        /*
+        Return true if any collision in joints, otherwise false
+        */
+        bool res = false;
         // Check joint0
         joints[0].localRotation = Quaternion.Euler(angles[0], 0, 0);
-        var jointCollision = InCollision(joints[0], isShow);
-        if ( jointCollision.Item2 != Vector3.zero ){
-            return jointCollision;
+        var jointCollision = InCollision(joints[0]);
+        if ( jointCollision ){
+            res = res || jointCollision;
         }
         // Check joint1
         joints[1].localRotation = Quaternion.Euler(0, angles[1], 0);
-        jointCollision = InCollision(joints[1], isShow);
-        if ( jointCollision.Item2 != Vector3.zero ){
-            return jointCollision;
-        }         
+        jointCollision = InCollision(joints[1]);
+        if ( jointCollision ){
+            res = res || jointCollision;
+        }
         joints[2].localRotation = Quaternion.Euler(0, angles[2], 0);
-        return new Tuple<Vector3, Vector3>(Vector3.zero, Vector3.zero);
+        return res;
     }
     // private static int CompareByCross(Tuple<Vector3, Vector3> x, Tuple<Vector3, Vector3> y){
     //     // To sort by Vector3.Cross(norm1, delta1) < Vector3.Cross(norm2, delta2)
@@ -279,56 +287,62 @@ public class Robot : MonoBehaviour {
     //     Vector3 deviation = (bodyCollision.Item2 + solutionFL.Item2 + solutionFR.Item2 + solutionRL.Item2 + solutionRR.Item2) / 4.0f;
     //     return deviation;
     // }
-    private Tuple<Vector3, Vector3> InCollision(Transform obj, bool isShow = false){
-        /* Return mean collision point and min normal vector of collision
+    private bool InCollision(Transform obj){
+        /* 
+        Return true if in Collision, otherwise return false
         */
+        // Find raycast verteces
         List<Vector3> verts = new List<Vector3>();
         BoxCollider b = obj.GetComponent<BoxCollider>();
-        for (int x = -1; x < 2; x += 2)
-            for (int y = -1; y < 2; y += 2)
+        for (int x = -1; x < 2; x += 2){
+            for (int y = -1; y < 2; y += 2){
                 for (int z = -1; z < 2; z += 2){
                     Vector3 v = (b.center + new Vector3(x * b.size.x, y * b.size.y, z * b.size.z) * 0.5f);
                     verts.Add( obj.TransformPoint(v) );
                 }
+            }
+        }
 
-        Vector3 meanPoint = Vector3.zero; Vector3 meanNormal = Vector3.zero;
-        int hitNumber = 0;
+        // Vector3 meanPoint = Vector3.zero; Vector3 meanNormal = Vector3.zero;
+        // int hitNumber = 0;
+        bool res = false;
         for (int i = 0; i < verts.Count; i++) {
             for (int j = 0; j < verts.Count; j++) {
                 if (i == j) continue;
                 RaycastHit hit;
                 Vector3 direction = verts[j] - verts[i];
                 if (Physics.Raycast(verts[i], direction, out hit, direction.magnitude, ~(1 << 6))){
-                    meanPoint += hit.point;
-                    meanNormal += hit.normal;
-                    hitNumber++;
+                    // meanPoint += hit.point;
+                    // meanNormal += hit.normal;
+                    // hitNumber++;
                     // collisionData.Add(new Tuple<Vector3, Vector3>(hit.point, hit.normal));
-                    // res = true;
-                    if (isShow)
+                    res = true;
+                    if (isShowInCollision)
                         Debug.DrawLine(verts[i], hit.point, Color.red);
-                } else if (isShow){
-                    Debug.DrawRay(verts[i], direction, Color.green);
                 }
             }
         }
-        if (hitNumber > 0){
-            meanPoint /= hitNumber;
-            meanNormal /= hitNumber;
-        }
-        return new Tuple<Vector3, Vector3>(meanPoint, meanNormal);
+        return res;
+        // if (hitNumber > 0){
+        //     meanPoint /= hitNumber;
+        //     meanNormal /= hitNumber;
+        // }
+        // return new Tuple<Vector3, Vector3>(meanPoint, meanNormal);
     }
-    public List<Tuple<Vector3, Quaternion>> GetHeapMovements(Vector3 deltaTransition, Quaternion deltaRotation, float dStep){
+    public List<Tuple<Vector3, Quaternion>> GetHeapMovements(Vector3 deltaTransition, Quaternion deltaRotation,
+            float dStep, bool isShow = false){
         // Calculate heap translation and rotation movements
-        List<Tuple<Vector3, Quaternion>> res = new List<Tuple<Vector3, Quaternion>>(4);
+        List<Tuple<Vector3, Quaternion>> deltas = new List<Tuple<Vector3, Quaternion>>(4);
         foreach (var heapPose in heapRelativePose) {
             Vector3 deltaRot = Vector3.ClampMagnitude(deltaRotation * heapPose - heapPose, dStep);
             Vector3 deltaTrans = Vector3.ClampMagnitude(deltaTransition, dStep);
-            res.Add(new Tuple<Vector3, Quaternion>(deltaTrans, Quaternion.FromToRotation(heapPose, heapPose + deltaRot)));
-            res.Add(new Tuple<Vector3, Quaternion>(deltaTrans, Quaternion.FromToRotation(heapPose, heapPose + deltaRot)));
+            deltas.Add(new Tuple<Vector3, Quaternion>(deltaTrans, Quaternion.FromToRotation(heapPose, heapPose + deltaRot)));
+
+            if(isShow) Debug.DrawRay(transform.position + heapPose, deltaTrans + deltaRot, Color.red);
         }
-        return res;
+        return deltas;
     }
-    private class Potential {
+    public class Potential{
         private Vector3 _direction, _propagation, _normal;
         private List<float> _angles = new List<float>();
         public Vector3 crossDirectionPropagation, crossNormalPropagation;
@@ -345,7 +359,7 @@ public class Robot : MonoBehaviour {
         public void SetAngles(List<float> angles) { _angles = angles; }
         public List<float> GetAngles() { return _angles; }
     }
-    private static int ComparePotentials(Potential lft, Potential rht){
+    private int ComparePotentials(Potential lft, Potential rht){
         /* 
         Function to comapre to potentials
         */
@@ -361,77 +375,155 @@ public class Robot : MonoBehaviour {
         float rhtWeight = rht.crossDirectionPropagation.magnitude;
         return lftWeight.CompareTo(rhtWeight);
     }
-    private List<Potential> GetPotentialsOnSurface(Vector3 pos, Vector3 mainDirection, bool isShow = false){
-        /* 
-        1. Creates a sphere raycast from pos directed along main Direction.
-        2. Store Potential data (mainDirection, propagation, normal) in potentails List
-        3. Sorts potentials by ComparePotentials 
-        */
+    // private List<Potential> GetPotentialsOutSurface(Vector3 pos, Vector3 mainDirection){
+    //     /* 
+    //     1. Creates a sphere raycast from pos directed along main Direction.
+    //     2. Store Potential data (mainDirection, propagation, normal) in potentails List
+    //     3. Sorts potentials by ComparePotentials 
+    //     */
 
-        // Create direction List
-        List<Vector3> rayDirections = new List<Vector3>{mainDirection};
-        for (float latitude = -0.5f * Mathf.PI; latitude < 0.5f * Mathf.PI; latitude += discretization){
-            for (float longitude = -0.25f * Mathf.PI; longitude < 0.25f * Mathf.PI; longitude += discretization){
-                Quaternion rotation = Quaternion.Euler(Mathf.Rad2Deg * longitude, Mathf.Rad2Deg * latitude, 0.0f);
-                rayDirections.Add(rotation * mainDirection.normalized);
-            }
-        }
+    //     // Create direction List
+    //     List<Vector3> rayDirections = new List<Vector3>{mainDirection};
+    //     for (float latitude = -0.5f * Mathf.PI; latitude < 0.5f * Mathf.PI; latitude += discretization){
+    //         for (float longitude = -0.25f * Mathf.PI; longitude < 0.25f * Mathf.PI; longitude += discretization){
+    //             Quaternion rotation = Quaternion.Euler(Mathf.Rad2Deg * longitude, Mathf.Rad2Deg * latitude, 0.0f);
+    //             rayDirections.Add(rotation * mainDirection);
+    //         }
+    //     }
 
-        // Make raycast propagations
-        List<Potential> potentials = new List<Potential>();
-        foreach (Vector3 dir in rayDirections) {
-            RaycastHit hit;
-            if (Physics.Raycast(pos, dir, out hit, Mathf.Infinity, ~(1 << 6))){
-                if (isShow) Debug.DrawLine(pos, hit.point, Color.gray);
-                potentials.Add(new Potential(mainDirection, hit.point - pos, hit.normal));
-            }
-        }
+    //     // Make raycast propagations
+    //     List<Potential> potentials = new List<Potential>();
+    //     foreach (Vector3 dir in rayDirections) {
+    //         RaycastHit hit;
+    //         if (Physics.Raycast(pos, dir, out hit, Mathf.Infinity, ~(1 << 6))){
+    //             if (isShowPotentialsSphere) Debug.DrawLine(pos, hit.point, Color.gray);
+    //             potentials.Add(new Potential(mainDirection, hit.point - pos, Vector3.zero));
+    //         }
+    //     }
 
-        // Sort potentials list
-        potentials.Sort(ComparePotentials);
-        return potentials;
-    }
-    private List<Potential> GetPotentialsOutSurface(Vector3 pos, Vector3 mainDirection, bool isShow = false){
-        /* 
-        1. Creates a sphere raycast from pos directed along main Direction.
-        2. Store Potential data (mainDirection, propagation, normal) in potentails List
-        3. Sorts potentials by ComparePotentials 
-        */
-
-        // Create direction List
-        List<Vector3> rayDirections = new List<Vector3>{mainDirection};
-        for (float latitude = -0.5f * Mathf.PI; latitude < 0.5f * Mathf.PI; latitude += discretization){
-            for (float longitude = -0.25f * Mathf.PI; longitude < 0.25f * Mathf.PI; longitude += discretization){
-                Quaternion rotation = Quaternion.Euler(Mathf.Rad2Deg * longitude, Mathf.Rad2Deg * latitude, 0.0f);
-                rayDirections.Add(rotation * mainDirection);
-            }
-        }
-
-        // Make raycast propagations
-        List<Potential> potentials = new List<Potential>();
-        foreach (Vector3 dir in rayDirections) {
-            RaycastHit hit;
-            if (Physics.Raycast(pos, dir, out hit, dir.magnitude, ~(1 << 6))){
-            } else {
-                Vector3 propagation = dir;
-                potentials.Add(new Potential(mainDirection, propagation, hit.normal));
-                if (isShow) Debug.DrawLine(pos, hit.point, Color.gray);
-            }
-        }
-
-        // Sort potentials list
-        potentials.Sort(ComparePotentialsOut);
-        return potentials;
-    }
-    private List<Potential> GetFeasiblePotentials(List<Transform> joints, Vector3 direction,
-            Func<Vector3, List<float>> InverseFunction, bool isShow = false){
+    //     // Sort potentials list
+    //     potentials.Sort(ComparePotentialsOut);
+    //     return potentials;
+    // }
+    // private List<Potential> GetFeasiblePotentials(List<Transform> joints, Vector3 direction,
+    //         Func<Vector3, List<float>> InverseFunction, bool isShow = false){
         /*
         1. Get potentials around joint[1] position with prime direction
         2. Filter potentials by several conditions
         */
-        List<Potential> potentials = GetPotentialsOnSurface(joints[1].position, direction, false);
-        List<Potential> feasiblePotentials = new List<Potential>();
+        // List<Potential> potentials = GetPotentialsOnSurface(joints[1].position, direction, false);
+        // List<Potential> feasiblePotentials = new List<Potential>();
         
+        // float filterAngle = 45.0f;
+        // foreach (var potential in potentials) {
+        //     // Don't use vertical surfaces
+        //     float angle = Mathf.Abs( Vector3.Angle(Vector3.up, potential.GetNormal()));
+        //     if (angle > filterAngle)
+        //         continue;
+        //     // define propagation vector from zero joint
+        //     Vector3 propagationFromJoint0 = transform.InverseTransformVector(potential.GetPropagation() + 
+        //         (joints[1].position - joints[0].position));
+        //     // Don't use far distances
+        //     if (propagationFromJoint0.magnitude >= maxDistance)
+        //         continue;
+        //     // Don't use unresolvable propagations
+        //     List<float> angles = InverseFunction(propagationFromJoint0);
+        //     if (angles[0] == float.NaN || angles[1] == float.NaN || angles[2] == float.NaN)
+        //         continue;
+        //     // if feasible save angles and append to list
+        //     potential.SetAngles(angles);
+        //     feasiblePotentials.Add(potential);
+        //     if (isShow) Debug.DrawRay(joints[0].position, transform.TransformVector(propagationFromJoint0), Color.green);
+        // }
+    //     return feasiblePotentials;
+    // }
+
+    public List<Potential> resolvedPotentials = new List<Potential>();
+    public int activeLeg; // FL = 0, FR = 1, RL = 2; RR = 3
+    public List<float> accDeltaStep = new List<float>();
+    public Vector3 accActiveDelta = Vector3.zero;
+    public List<Vector3> GetLegDirectionsByMotion(List<Tuple<Vector3, Quaternion>> deltas, List<Potential> lastPropagations,
+            bool isShow = false){
+        List<Vector3> res = new List<Vector3>();
+        for (int i = 0; i < heapRelativePose.Count; i++){
+            // Calculate delta vector
+            Vector3 transition = deltas[i].Item1;
+            Quaternion rotation = deltas[i].Item2;
+            Vector3 delta = -(transition + rotation * heapRelativePose[i] - heapRelativePose[i]);
+            
+            Vector3 direction = Vector3.zero;
+            if (i == activeLeg){ // Active leg direction should compencate accumulatted deltas
+                // Vector3 compencation = Vector3.ClampMagnitude(delta, Mathf.Min(delta.magnitude, accDeltaStep[i]));
+                Vector3 compencation = delta.normalized * accDeltaStep[i];
+                accDeltaStep[i] -= compencation.magnitude;
+                direction = lastPropagations[i].GetPropagation() - delta - compencation;
+                accActiveDelta += delta + compencation;
+            } else { // Should stay on same place, but accumulate delta
+                direction = lastPropagations[i].GetPropagation() + delta;
+                accDeltaStep[i] += delta.magnitude;
+            }
+            
+            res.Add(direction);
+
+            if (isShow) Debug.DrawRay(transform.position + heapRelativePose[i], delta.normalized * accDeltaStep[i], Color.yellow);
+            if (isShow) Debug.DrawRay(transform.position + heapRelativePose[i], direction, Color.white);
+        }
+        
+        return res;
+    }
+    public int FindActiveLeg(List<Vector3> directions){
+        int nextActive = activeLeg;
+        float maxAngle = 0.0f;
+        for (int i = 0; i < heapRelativePose.Count; i++){
+            if (i == activeLeg){
+                Debug.Log(i + " active: " + accActiveDelta.magnitude);
+                continue;
+            }
+            float angle = Vector3.Angle(directions[i], directions[activeLeg]);
+            Debug.Log(i + " passive: " + accDeltaStep[i] + "\n" + angle);
+                
+            if (angle > 30.0f && angle > maxAngle){
+                nextActive = i;
+                maxAngle = angle;
+            }
+        }
+        return nextActive;
+    }
+    private List<Potential> GetPotentials(
+        Vector3 pos, 
+        Vector3 primeDirection,
+        Func<Potential, Potential, int> sortFunc)
+        {
+        // 1. Creates a sphere raycast from position {pose} directed along prime direction {primeDirection}.
+        List<Vector3> rayDirections = new List<Vector3>{primeDirection};
+        for (float latitude = -0.5f * Mathf.PI; latitude < 0.5f * Mathf.PI; latitude += discretization){
+            for (float longitude = -0.25f * Mathf.PI; longitude < 0.25f * Mathf.PI; longitude += discretization){
+                Quaternion rotation = Quaternion.Euler(Mathf.Rad2Deg * longitude, Mathf.Rad2Deg * latitude, 0.0f);
+                rayDirections.Add(rotation * primeDirection.normalized);
+            }
+        }
+
+        // 2. Store Potential data (primeDirection, propagation, normal) in potentails List
+        List<Potential> potentials = new List<Potential>();
+        foreach (Vector3 dir in rayDirections) {
+            RaycastHit hit;
+            if (Physics.Raycast(pos, dir, out hit, Mathf.Infinity, ~(1 << 6))){
+                if (isShowPotentialsSphere) Debug.DrawLine(pos, hit.point, Color.gray);
+                potentials.Add(new Potential(primeDirection, hit.point - pos, hit.normal));
+            }
+        }
+
+        // 3. Sorts potentials by {sortFunc} 
+        potentials.Sort(new Comparison<Potential>(sortFunc));
+        return potentials;
+    }
+    private List<Potential> GetFilteredPotentials(
+            List<Potential> potentials, 
+            List<Transform> jointsToApply,
+            Func<Vector3, List<float>> inverseKinematicsFunc)
+        {
+        // 1. Filter potentials by several conditions
+        List<Potential> feasiblePotentials = new List<Potential>();
         float filterAngle = 45.0f;
         foreach (var potential in potentials) {
             // Don't use vertical surfaces
@@ -440,120 +532,60 @@ public class Robot : MonoBehaviour {
                 continue;
             // define propagation vector from zero joint
             Vector3 propagationFromJoint0 = transform.InverseTransformVector(potential.GetPropagation() + 
-                (joints[1].position - joints[0].position));
+                (jointsToApply[1].position - jointsToApply[0].position));
             // Don't use far distances
             if (propagationFromJoint0.magnitude >= maxDistance)
                 continue;
             // Don't use unresolvable propagations
-            List<float> angles = InverseFunction(propagationFromJoint0);
+            List<float> angles = inverseKinematicsFunc(propagationFromJoint0);
             if (angles[0] == float.NaN || angles[1] == float.NaN || angles[2] == float.NaN)
                 continue;
             // if feasible save angles and append to list
             potential.SetAngles(angles);
             feasiblePotentials.Add(potential);
-            if (isShow) Debug.DrawRay(joints[0].position, transform.TransformVector(propagationFromJoint0), Color.green);
-        }
-        return feasiblePotentials;
-    }
-    private List<Potential> GetFeasiblePotentialsOutSurface(List<Transform> joints, Vector3 direction,
-            Func<Vector3, List<float>> InverseFunction, bool isShow = false){
-        /*
-        1. Get potentials around joint[1] position with prime direction
-        2. Filter potentials by several conditions
-        */
-        List<Potential> potentials = GetPotentialsOutSurface(joints[1].position, direction, false);
-        List<Potential> feasiblePotentials = new List<Potential>();
-        
-        // float filterAngle = 45.0f;
-        foreach (var potential in potentials) {
-            // Don't use vertical surfaces
-            // float angle = Mathf.Abs( Vector3.Angle(Vector3.up, potential.GetNormal()));
-            // if (angle > filterAngle)
-            //     continue;
-            // define propagation vector from zero joint
-            Vector3 propagationFromJoint0 = transform.InverseTransformVector(potential.GetPropagation() + 
-                (joints[1].position - joints[0].position));
-            // Don't use far distances
-            if (propagationFromJoint0.magnitude >= maxDistance)
-                continue;
-            // Don't use unresolvable propagations
-            List<float> angles = InverseFunction(propagationFromJoint0);
-            if (angles[0] == float.NaN || angles[1] == float.NaN || angles[2] == float.NaN)
-                continue;
-            // if feasible save angles and append to list
-            potential.SetAngles(angles);
-            feasiblePotentials.Add(potential);
-            if (isShow) Debug.DrawRay(joints[0].position, transform.TransformVector(propagationFromJoint0), Color.green);
-        }
-        return feasiblePotentials;
-    }
-    private Potential GetObstacleFreePotential(List<Transform> joints, Vector3 direction, 
-        Func<Vector3, List<float>> InverseFunction, bool isShow = false){
-        // Return true and direction if solution have found, otherwise return false
-        var potentials = GetFeasiblePotentials(joints, direction, InverseFunction, false);
-        
-        // Vector3 meanNormal = Vector3.zero;
-        // int collisionCounter = 0;
-        foreach (var potential in potentials) {
-            var jointCollisionData = IsAnglesInCollision(joints, potential.GetAngles(), false);
-        //     if (jointCollisionData.Item2 != Vector3.zero){
-        //         meanNormal += jointCollisionData.Item2; collisionCounter++;
-        //         continue;
-        //     }
-            if (isShow) Debug.DrawRay(joints[0].position, potential.GetPropagation(), Color.green);
-            if (isShow) Debug.DrawRay(joints[0].position, direction, Color.black);
-            return potential;
-        }
-        return new Potential();
-        // //if no solution without collison
-        // return new Tuple<bool, Vector3>(false, meanNormal / collisionCounter);
-    }
-    private Potential GetObstacleFreePotentialOutSurface(List<Transform> joints, Vector3 direction, 
-        Func<Vector3, List<float>> InverseFunction, bool isShow = false){
-        // Return true and direction if solution have found, otherwise return false
-        var potentials = GetFeasiblePotentialsOutSurface(joints, direction, InverseFunction, false);
-        
-        // Vector3 meanNormal = Vector3.zero;
-        // int collisionCounter = 0;
-        foreach (var potential in potentials) {
-            var jointCollisionData = IsAnglesInCollision(joints, potential.GetAngles(), false);
-        //     if (jointCollisionData.Item2 != Vector3.zero){
-        //         meanNormal += jointCollisionData.Item2; collisionCounter++;
-        //         continue;
-        //     }
-            if (isShow) Debug.DrawRay(joints[0].position, potential.GetPropagation(), Color.green);
-            if (isShow) Debug.DrawRay(joints[0].position, direction, Color.black);
-            return potential;
-        }
-        return new Potential();
-        // //if no solution without collison
-        // return new Tuple<bool, Vector3>(false, meanNormal / collisionCounter);
-    }
-    public List<Vector3> GetFeasibleLegDirections(){
-        /* 
-            Returns list of feasible directions of propagation for each leg
-            Must have Count == 4
-        */
-        // if (lastFeasiblePotentials.Count != 4)
-        //     return new List<Vector3>{Vector3.zero};
-        // else
-        //     return new List<Vector3> {
-        //         lastFeasiblePotentials[0].GetPropagation(), lastFeasiblePotentials[1].GetPropagation(),
-        //         lastFeasiblePotentials[2].GetPropagation(), lastFeasiblePotentials[3].GetPropagation()
-        //     };
-        return lastFeasiblePotentials;
-    }
-    private List<Vector3> lastFeasiblePotentials = new List<Vector3>();
-    public int activeLeg; // FL = 0, FR = 1, RL = 2; RR = 3
 
-    public List<Vector3> GetLegPropagations(List<Vector3> directions){
-        lastFeasiblePotentials.Clear();
-        List<Vector3> res = new List<Vector3>();
+            if (isShowFeasiblePotentials) 
+                Debug.DrawRay(jointsToApply[0].position, transform.TransformVector(propagationFromJoint0), Color.green);
+        }
+        return feasiblePotentials;
+    }
+    private bool IsObstacleFreeExists(
+            List<Transform> jointsToApply,
+            Vector3 primeDirection,
+            Func<Potential, Potential, int> sortPotentialsFunc,
+            Func<List<Potential>, List<Transform>, Func<Vector3, List<float>>, List<Potential>> filterPotentialsFunc,
+            Func<Vector3, List<float>> inverseKinematicsFunc)
+    {
+        // Get potentials around pose {jointsToApply[1].position} with direction {primeDirection} sorted by {sortPotentialsFunc}
+        List<Potential> potentials = GetPotentials(jointsToApply[1].position, primeDirection, sortPotentialsFunc);
+        if (potentials.Count == 0)
+            return false;
         
+        // Filter potentials {potentials} for joints {jointsToApply} and IK function {inverseKinematicsFunc}
+        potentials = filterPotentialsFunc(potentials, jointsToApply, inverseKinematicsFunc);
+        if (potentials.Count == 0)
+            return false;
+        
+        // // Vector3 meanNormal = Vector3.zero;
+        // // int collisionCounter = 0;
+        foreach (var potential in potentials) {
+            bool isInCollision = IsAnglesInCollision(jointsToApply, potential.GetAngles(), false);
+            if (isInCollision){
+        //         meanNormal += jointCollisionData.Item2; collisionCounter++;
+                continue;
+            }
+            resolvedPotentials.Add(potential);
+            if (isShowObstacleFreePotentials) Debug.DrawRay(jointsToApply[1].position, potential.GetPropagation(), Color.green);
+            return true;
+        }
+        return false;
+    }
+    public bool IsPropagatable(List<Vector3> directions){
+        bool res = true;
+
         for (int i = 0; i < heapRelativePose.Count; i++) {
             Vector3 pose = transform.position + heapRelativePose[i];
             Vector3 direction = directions[i];
-            
             List<Transform> joints = FLjoints;
             Func<Vector3, List<float>> func = ResolveInverseKinematicsFL;
             switch (i) {
@@ -576,44 +608,12 @@ public class Robot : MonoBehaviour {
                 default:
                     break;
             }
-            var potential = new Potential();
             if (i == activeLeg){
-                potential = GetObstacleFreePotentialOutSurface(joints, direction, func, false);
+                res = res && IsObstacleFreeExists(joints, direction * 0.75f, ComparePotentialsOut, GetFilteredPotentials, func);
             } else {
-                potential = GetObstacleFreePotential(joints, direction, func, false);
+                res = res && IsObstacleFreeExists(joints, direction, ComparePotentials, GetFilteredPotentials, func);
             }
-            lastFeasiblePotentials.Add(potential.GetPropagation());
-            res.Add(potential.GetPropagation() - direction);
-
-            // Debug.DrawRay(pose, direction, Color.black);
-            // Debug.DrawRay(pose, potential.GetPropagation(), Color.blue);
         }
-        return res;
-    }
-    public List<Vector3> accDeltaStep = new List<Vector3>();
-    public Vector3 accActiveDelta = Vector3.zero;
-    public List<Vector3> GetLegDirectionsByMotion(Vector3 transition, Quaternion rotation, List<Vector3> lastPropagations,
-            bool isShow = false){
-        List<Vector3> res = new List<Vector3>();
-        for (int i = 0; i < heapRelativePose.Count; i++){
-            Vector3 delta = -(transition + rotation * heapRelativePose[i] - heapRelativePose[i]);
-            Vector3 direction = lastPropagations[i] + delta;
-            if (i == activeLeg){
-                Vector3 accumulated = Vector3.ClampMagnitude(accDeltaStep[i], delta.magnitude * 2.0f);
-                accDeltaStep[i] -= accumulated;
-                direction = lastPropagations[i] - delta - accumulated;
-                accActiveDelta += delta;
-            } else {
-                accDeltaStep[i] += delta;
-            }
-            
-            Debug.Log(i + ": " + accDeltaStep[i].magnitude);
-            res.Add(direction);
-
-            if (isShow) Debug.DrawRay(transform.position + heapRelativePose[i], -delta, Color.red);
-            if (isShow) Debug.DrawRay(transform.position + heapRelativePose[i], direction, Color.white);
-        }
-        
         return res;
     }
 }
