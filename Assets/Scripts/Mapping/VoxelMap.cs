@@ -15,6 +15,7 @@ public class VoxelMap : MonoBehaviour
     private Dictionary<Vector3Int, Vector3Int> actionMap = new Dictionary<Vector3Int, Vector3Int>(0);
     void Awake() {
     }
+    private string GetVectorString(Vector3 v){ return v.x + ", " + v.y + ", " + v.z; }
     public void SetMapSize(Vector3Int v){
         mapSize_ = v;
         voxelMap = new Dictionary<Vector3Int, Vector3>(mapSize_.x * mapSize_.y * mapSize_.z);
@@ -24,14 +25,13 @@ public class VoxelMap : MonoBehaviour
     }
     public void SetGridSize(Vector3 v){
         gridSize_ = v;
-        Debug.Log("New voxel grid size: " + gridSize_.x + ", " + gridSize_.y + ", " + gridSize_.z);
+        Debug.Log("New voxel grid size: " + GetVectorString(gridSize_));
     }
     public Vector3 GetGridSize(){
         return gridSize_;
     }
     public void SetMinCorner(Vector3 v){
         minCorner_ = v;
-        Debug.Log("New voxel min corner: " + minCorner_.x + ", " + minCorner_.y + ", " + minCorner_.z);
     }
     public Vector3 GetMinCorner(){
         return minCorner_;
@@ -76,7 +76,8 @@ public class VoxelMap : MonoBehaviour
         }
         foreach (var item in voxelMap) {
             Transform newObj = Instantiate(obstacleCell, item.Value, Quaternion.identity, transform);
-            newObj.localScale = gridSize_;
+            newObj.localScale = transform.InverseTransformVector(gridSize_);
+            // newObj.localScale = gridSize_;
             newObj.gameObject.name = item.Key.ToString();
         }
     }

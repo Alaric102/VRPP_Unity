@@ -112,6 +112,7 @@
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\RosCommuncation\GetParamServiceProvider.cs" />
      <Compile Include="Assets\RosSharp\Scripts\RosBridgeClient\MessageHandling\LaserScanReader.cs" />
      <None Include="Assets\RosSharp\Plugins\Microsoft\System.Threading.Tasks.Extensions.xml" />
+     <None Include="Assets\Industrial_Machine_Models\Read_me.txt" />
      <None Include="Assets\RosSharp\Plugins\External\websocket-sharp.xml" />
      <None Include="Assets\RosSharp\Plugins\External\Newtonsoft.Json.Bson.xml" />
     <Reference Include="UnityEngine">

@@ -34,7 +34,7 @@ public class Mapper : MonoBehaviour
     public Navigation navigation;
     void Start(){
         if (!voxelMap.LoadVoxelMap("D:/catkin_ws/src/VRPP_ROS/launch" + "/map.txt")){
-            MakeMap();
+            isMapping = MakeMap();
         } else {
             minCorner_ = voxelMap.GetMinCorner();
         }
@@ -83,18 +83,18 @@ public class Mapper : MonoBehaviour
                 maxCorner.z = direction.z;
         }
         bb.gameObject.SetActive(false);
+        Debug.Log("minCorner: " + GetVectorString(minCorner) + "\nmax corner: " + GetVectorString(maxCorner));
         return new Tuple<Vector3, Vector3>(minCorner, maxCorner);
     }
+    private string GetVectorString(Vector3 v){ return v.x + ", " + v.y + ", " + v.z; }
     private Vector3 GetChunkSize(Vector3 minCorner, Vector3 maxCorner){ // define size of each chunk
         if (boundary == null){
             Debug.Log("Empty boundary Item!");
             return Vector3.zero;
         }
-        Vector3 range = maxCorner - minCorner;
-        Vector3 chunkSize = new Vector3(
-            range.x / chunksNumber.x, 
-            range.y / chunksNumber.y,
-            range.z / chunksNumber.z);
+        Vector3 maxSize = maxCorner - minCorner;
+        Vector3 chunkSize = new Vector3( maxSize.x / chunksNumber.x, maxSize.y / chunksNumber.y, maxSize.z / chunksNumber.z);
+        Debug.Log("Chunk size: " + GetVectorString(chunkSize));
         return chunkSize;
     }
     private bool GenerateChunks(Vector3 minCorner, Vector3 maxCorner, Vector3 chunkSize){ // Generates first chunks of gridRunner objects
@@ -109,8 +109,8 @@ public class Mapper : MonoBehaviour
                     Vector3 max = min + chunkSize;
                     
                     Transform newObj = Instantiate(gridRunner, (max + min) / 2.0f, Quaternion.identity, transform);
-                    newObj.GetComponent<BinRunner>().SetCorners(min, max);
-                    newObj.GetComponent<BinRunner>().SetRecursionLevels(0, maxLevel);
+                    newObj.GetComponent<BinRunner>().Init(min, max, 0, maxLevel);
+                    // newObj.GetComponent<BinRunner>().SetRecursionLevels();
                     newObj.GetComponent<Collider>().enabled = false;
                     newObj.gameObject.SetActive(true);
                 }
@@ -120,39 +120,28 @@ public class Mapper : MonoBehaviour
         CleanMap();
         Tuple<Vector3, Vector3> corners = DefineMinMaxCorners(boundary.transform);
         minCorner_ = corners.Item1;
-        Vector3 chunkSize = GetChunkSize(corners.Item1, corners.Item2);
+        maxCorner_ = corners.Item2;
+        voxelMap.SetMinCorner(minCorner_);
 
+        Vector3 chunkSize = GetChunkSize(corners.Item1, corners.Item2);
         if (chunkSize == Vector3.zero){
             Debug.Log("Invalid chunkSize.");
             return false;
         }
 
-        // Vector2Int chunksNumber2D = new Vector2Int(chunksNumber.x, chunksNumber.z);
-        // imageSize = chunksNumber2D * ((int)Mathf.Pow(2, maxLevel));
-        // Debug.Log("Image size: " + imageSize);
-        
+        // Define voxel map size
         Vector3Int voxelMapSize = chunksNumber * ((int)Mathf.Pow(2, maxLevel));
         voxelMap.SetMapSize(voxelMapSize);
-        // Debug.Log(corners.Item1.x + ", " + corners.Item1.y + ", " + corners.Item1.z);
-        voxelMap.SetMinCorner(corners.Item1);
-        Vector3 range = corners.Item2 - corners.Item1;
-        Vector3 gridSize = new Vector3(
-            range.x / voxelMapSize.x, 
-            range.y / voxelMapSize.y,
-            range.z / voxelMapSize.z);
-        
+        // Define final grid size
+        Vector3 range = maxCorner_ - minCorner_;
+        Vector3 gridSize = new Vector3(range.x / voxelMapSize.x, range.y / voxelMapSize.y, range.z / voxelMapSize.z);
         voxelMap.SetGridSize(gridSize);
-        Debug.Log(gridSize.x + ", " + gridSize.y + ", " + gridSize.z + "\n" +
-            chunkSize.x + ", " + chunkSize.y + ", " + chunkSize.z);
 
-        // mapImage = new Texture2D(imageSize.x, imageSize.y, TextureFormat.RGB24, false);
+        // isMapping = true;
         // mappingDuration = 0.0f;
-        isMapping = true;
-        return GenerateChunks(corners.Item1, corners.Item2, chunkSize);
+        return GenerateChunks(minCorner_, maxCorner_, chunkSize);
     }
-    public Vector3 GetMinCorner(){
-        return minCorner_;
-    }
+    public Vector3 GetMinCorner(){ return minCorner_; }
     public Transform GetObstacleState(){ // Get activated obstacle transform with disabled collider
         obstacleState.gameObject.SetActive(true);
         obstacleState.GetChild(0).GetComponent<Collider>().enabled = false;
@@ -184,8 +173,8 @@ public class Mapper : MonoBehaviour
                         Vector3 max = newPos + voxelMap.GetGridSize() / 2.0f;
                         
                         Transform newObj = Instantiate(gridRunner, newPos, Quaternion.identity, transform);
-                        newObj.GetComponent<BinRunner>().SetCorners(min, max);
-                        newObj.GetComponent<BinRunner>().SetRecursionLevels(maxLevel, maxLevel);
+                        newObj.GetComponent<BinRunner>().Init(min, max, maxLevel, maxLevel);
+                        // newObj.GetComponent<BinRunner>().SetRecursionLevels();
                         newObj.GetComponent<Collider>().enabled = false;
                         newObj.gameObject.SetActive(true);
                     }

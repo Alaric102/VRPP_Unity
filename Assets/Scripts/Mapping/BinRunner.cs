@@ -5,7 +5,7 @@ using UnityEngine;
 public class BinRunner : MonoBehaviour {
     public int objectLimit = 1000;
     private Transform gridRunner;
-    private Vector3 minCorner = Vector3.zero, maxCorner = Vector3.zero;
+    private Vector3 minCorner_ = Vector3.zero, maxCorner_ = Vector3.zero;
     private int currentLevel, maxLevel;
     private int toGenerate = -1;
     private bool isObstacle = false;
@@ -34,13 +34,12 @@ public class BinRunner : MonoBehaviour {
                 int y = (((toGenerate - 1) >> 1) & 1)*2-1;
                 int z = (((toGenerate - 1) >> 2) & 1)*2-1;
                 
-                Vector3 scale = (maxCorner - minCorner)/2.0f;
+                Vector3 scale = (maxCorner_ - minCorner_)/2.0f;
                 Vector3 pose = transform.position - Vector3.Scale(scale / 2.0f, new Vector3(x, y, z));
-                Vector3 min = minCorner + Vector3.Scale(scale, new Vector3(x+1, y+1, z+1));
+                Vector3 min = minCorner_ + Vector3.Scale(scale, new Vector3(x+1, y+1, z+1));
                 Vector3 max = min + scale;
                 Transform newObj = Instantiate(gridRunner, pose, Quaternion.identity, transform.parent);
-                newObj.GetComponent<BinRunner>().SetCorners(min, max);
-                newObj.GetComponent<BinRunner>().SetRecursionLevels(currentLevel + 1, maxLevel);
+                newObj.GetComponent<BinRunner>().Init(min, max, currentLevel + 1, maxLevel);
                 newObj.GetComponent<Collider>().enabled = false;
                 newObj.gameObject.SetActive(true);
 
@@ -69,35 +68,41 @@ public class BinRunner : MonoBehaviour {
             return;
         }
     }
-    public void SetCorners(Vector3 min, Vector3 max){
-        minCorner = min;
-        maxCorner = max;
-        transform.localScale = max - min;
-    }
-    public void SetRecursionLevels(int lvl, int maxLvl){
+    public bool Init(Vector3 min, Vector3 max, int lvl, int maxLvl){
+        // Define scale by min/max range
+        minCorner_ = min; maxCorner_ = max;
+        transform.localScale = transform.parent.InverseTransformVector(max - min);
+        
+        if (lvl > maxLvl){
+            Debug.Log("Invalid lvl: " + lvl + " > " + maxLevel);
+            return false;
+        }
         currentLevel = lvl;
         maxLevel = maxLvl;
+        
+        return true;
     }
 
     void OnDestroy(){ // On destroy we want to notify voxel map about collision if we reached max level
         if (currentLevel == maxLevel){
             Vector3 globalMinCorner = transform.parent.GetComponent<Mapper>().GetMinCorner();
-            Vector3 globalPose = transform.parent.TransformPoint(transform.position);
-            Vector3 unsignedGlobalPose = globalPose + transform.localScale / 2.0f - globalMinCorner;
-            
+            Vector3 globalPose = transform.position;
+            Vector3 unsignedGlobalPose = globalPose + transform.lossyScale / 2.0f - globalMinCorner;
+            // Debug.DrawLine(globalMinCorner, globalPose);
+            // Debug.DrawRay(globalPose, transform.lossyScale / 2.0f, Color.black);
+
             Vector3Int voxelCellPose = new Vector3Int(
-                ((int)Mathf.Round(unsignedGlobalPose.x/transform.localScale.x)) - 1,
-                ((int)Mathf.Round(unsignedGlobalPose.y/transform.localScale.y)) - 1,
-                ((int)Mathf.Round(unsignedGlobalPose.z/transform.localScale.z)) - 1
+                ((int)Mathf.Round(unsignedGlobalPose.x/transform.lossyScale.x)) - 1,
+                ((int)Mathf.Round(unsignedGlobalPose.y/transform.lossyScale.y)) - 1,
+                ((int)Mathf.Round(unsignedGlobalPose.z/transform.lossyScale.z)) - 1
             );
-            Debug.Log(globalMinCorner + "\n" + 
-                globalPose + "\n" +
-                unsignedGlobalPose + "\n" +
-                voxelCellPose);
             if (isObstacle){
-                // Debug.Log(voxelCellPose);
+                // Debug.Log("globalPose: " + GetVectorString(globalPose) + "\n" +
+                //     "unsignedGlobalPose: " + GetVectorString(unsignedGlobalPose) + "\n" +
+                //     "voxelCellPose: " + voxelCellPose);
                 voxelMap.SetObstacleCell(voxelCellPose, globalPose);
             }
         }
     }
+    private string GetVectorString(Vector3 v){ return v.x + ", " + v.y + ", " + v.z; }
 }
