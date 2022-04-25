@@ -38,12 +38,12 @@ public class MainMenu : MonoBehaviour
             getMenuStatus(trackpadVector);
             HighlightSelected();
             
-            helpBar.SetHelpText("Press trackpad to select option.");
+            helpBar.SetHelpText("Press trackpad to select option.\n Press trigger to teleportate.");
         } else {
             mapPanel.SetActive(false);
             navPanel.SetActive(false);
-
-            helpBar.SetHelpText("Use trackpad to see Main Menu");
+            Vector3 pose = GetPosition();
+            helpBar.SetHelpText("Use trackpad to see Main Menu.\n Press trigger to teleportate.");
         }
     }
     private int getMenuStatus(Vector2 axis){
@@ -118,6 +118,7 @@ public class MainMenu : MonoBehaviour
         }
     }
     public void processTriggerPress(){
-
+        Vector3 pose = GetPosition();
+        transform.parent.parent.position = pose;
     }
 }

@@ -28,7 +28,7 @@ public class NavigationMenu : MonoBehaviour {
     public Navigation navigation = null;
     public Transform editRegionPrefab;
     private Transform editRegion;
-    private int movingPoseID = -1;
+    private Vector3 movingPose = Vector3.zero;
     private Vector3 newPoseState = Vector3.zero;
     void Awake() {
         // find child objects of VR GUI
@@ -86,7 +86,7 @@ public class NavigationMenu : MonoBehaviour {
                 goalState.rotation = Quaternion.Euler(GetRotationEuler());
                 prefixStr = "Press trigger to finish.";
             } else {
-                goalState.position = GetPosition();
+                goalState.position = GetPosition() + Vector3.up * 0.2f;
                 prefixStr = "Press trigger to set rotation.";
             }
             string data = GetHelpText(goalState.position, goalState.rotation.eulerAngles);
@@ -94,24 +94,29 @@ public class NavigationMenu : MonoBehaviour {
         }
         // Process editting path states
         if (isEditingPath){
+            navigation.StopPlanning();
             Vector3 directionRay = GetPosition();
+            // get list of all gPlan states (acheieved and toacheive)
             List<Vector3> globalPlan = navigation.GetGlobalPlan();
-            if (globalPlan.Count == 0)
+            if (globalPlan.Count == 0){
                 isEditingPath = false;
+                return;
+            }
+            // enable sphere for edit
             editRegion.gameObject.SetActive(true);
             if (isMovingPathState){
                 newPoseState = directionRay;
                 editRegion.position = newPoseState;
-            } else {
+            } else { // selection of globaPose
                 float minDistance = float.MaxValue;
-                for (int id = 0; id < globalPlan.Count; ++id) {
-                    if ((globalPlan[id] - directionRay).magnitude < minDistance && (globalPlan[id] - directionRay).magnitude < 0.3f){
-                        minDistance = (globalPlan[id] - directionRay).magnitude;
-                        movingPoseID = id;
+                foreach (var pose in globalPlan) {
+                    if ((pose - directionRay).magnitude < minDistance && (pose - directionRay).magnitude < 0.3f){
+                        minDistance = (pose - directionRay).magnitude;
+                        movingPose = pose;
                     }
                 }
-                if (movingPoseID >= 0)
-                    editRegion.position = globalPlan[movingPoseID];
+                // if (movingPose >= 0)
+                editRegion.position = movingPose;
             }
         } else {
             editRegion.gameObject.SetActive(false);
@@ -221,7 +226,7 @@ public class NavigationMenu : MonoBehaviour {
             return;
         switch (menuStatus) {
             case ((int)MenuStatus.SET_START):
-                isSettingStartState = true;
+                // isSettingStartState = true;
                 break;
             case ((int)MenuStatus.SET_GOAL):
                 isSettingGoalState = true;
@@ -254,6 +259,7 @@ public class NavigationMenu : MonoBehaviour {
             if (isSettingRotation){
                 isSettingGoalState = false;
                 isSettingRotation = false;
+                navigation.AddGoalState();
             } else {
                 isSettingRotation = true;
             }
@@ -262,7 +268,8 @@ public class NavigationMenu : MonoBehaviour {
             if (isMovingPathState){
                 isMovingPathState = false;
                 isEditingPath = false;
-                navigation.Replan(newPoseState, movingPoseID);
+                editRegion.gameObject.SetActive(false);
+                navigation.Replan(editRegion.position, movingPose);
             } else {
                 isMovingPathState = true;
             }

@@ -7,6 +7,7 @@ public class Navigation : MonoBehaviour {
     private GlobalPlanner gPlanner;
     private LocalPlanner lPlanner;
     private List<Vector3> globalPlan = new List<Vector3>();
+    private Queue<Tuple<Vector3, Quaternion>> goalStates = new Queue<Tuple<Vector3, Quaternion>>();
     private Transform startState, goalState;
     private Vector3 startRotation, goalRotation; // Required to store angles in range [-180, 180)
     void Awake() {
@@ -24,45 +25,29 @@ public class Navigation : MonoBehaviour {
         startState.gameObject.SetActive(true);
         return startState;
     }
+    public void SetStartState(Transform state){
+        startState.position = state.position;
+        startState.rotation = state.rotation;
+    }
     public Transform GetGoalState(){ // Get activated star state transform
         goalState.gameObject.SetActive(true);
         return goalState;
     }
+    public void AddGoalState(){
+        goalStates.Enqueue(new Tuple<Vector3, Quaternion>(goalState.position, goalState.rotation));
+    }
     public bool StartPlanning(){
-        // globalPlan = gPlanner.GetGlobalPlan(startState.position, goalState.position);
-        // if (globalPlan.Count == 0){
-        //     Debug.Log("No global path");
-        //     return false;
-        // }
-        // ShowGlobalPlan(globalPlan);
-        lPlanner.GetPath(startState, goalState);
+        lPlanner.StartPlanning(startState, goalState);
         return true;
     }
-    public void Replan(Vector3 newGoal, int startID){
-        // gPlanner.SetWieght(gPlanner.GetDescrete(globalPlan[startID]), 1.0f);
-
-        // List<Vector3> newPath = new List<Vector3>();
-        // for (int id = 0; id < startID; ++id){
-        //     newPath.Add(globalPlan[id]);
-        // }
-        
-        // List<Vector3> planToNewGoal = gPlanner.ConvertPlanToCont(gPlanner.GetGlobalPlan(globalPlan[startID], newGoal));
-        // for (int id = 0; id < planToNewGoal.Count; ++id){
-        //     newPath.Add(planToNewGoal[id]);
-        // }
-        
-        // List<Vector3> planFromNewGoal = gPlanner.ConvertPlanToCont(
-        //     gPlanner.GetGlobalPlan(planToNewGoal[planToNewGoal.Count - 1], goalState.position));
-        // for (int id = 0; id < planFromNewGoal.Count; ++id){
-        //     newPath.Add(planFromNewGoal[id]);
-        // }
-
-        // globalPlan = newPath;
-        // gPlanner.ShowPlan(globalPlan);
-        // lPlanner.SetGlobalPath(globalPlan);
+    public void Replan(Vector3 newPose, Vector3 oldPose){
+        lPlanner.Replan(newPose, oldPose);
     }
     public List<Vector3> GetGlobalPlan(){
-        return globalPlan;
+        return lPlanner.GetGlobalPlan();
+    }
+    public void StopPlanning(){
+        lPlanner.StopPlanning();
     }
     public void SetActiveStates(bool isActive){
         startState.gameObject.SetActive(isActive);

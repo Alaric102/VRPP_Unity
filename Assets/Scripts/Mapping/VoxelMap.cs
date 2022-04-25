@@ -145,6 +145,12 @@ public class VoxelMap : MonoBehaviour
         file.Close();
         Debug.Log("Voxel map saved: " + _fullPath);
     }
+    public void SaveWeightMap(string _fullPath, string label){
+        StreamWriter file = new StreamWriter(_fullPath + label + "_weight.txt", append: false);
+        foreach (var item in weightMap)
+            file.Write(FormatVector3Int(item.Key) + ";" + item.Value.ToString() + "\n");
+        file.Close();
+    }
     private string FormatVector3Int(Vector3Int v){
         return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
     }

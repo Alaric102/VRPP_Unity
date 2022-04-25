@@ -6,9 +6,10 @@ using UnityEngine;
 
 public class Robot : MonoBehaviour {
     private bool isShowPotentialsSphere = false;
-    private bool isShowFeasiblePotentials = true;
-    private bool isShowObstacleFreePotentials = false;
+    private bool isShowFeasiblePotentials = false;
+    private bool isShowObstacleFreePotentials = true;
     private bool isShowInCollision = false;
+    private bool isShowPrimeDirections = true;
     private class Leg {
         public Leg(Transform robot, Transform zeroJoint){
             joint0 = zeroJoint;
@@ -34,8 +35,8 @@ public class Robot : MonoBehaviour {
     private List<float> jointDistances = new List<float>(3);
     private List<Vector3> heapRelativePose = new List<Vector3>(4);
     public float discretization = 0.5f;
-    private List<float> maxAngles = new List<float>{60.0f, 180.0f, 90.0f};
-    private List<float> minAngles = new List<float>{-60.0f, -180.0f, -0.0f};
+    private List<float> maxAngles = new List<float>{30.0f, 180.0f, 90.0f};
+    private List<float> minAngles = new List<float>{-30.0f, -180.0f, -0.0f};
     public float minDistance = 0.1053526f, maxDistance = 0.3111828f;
     
     [Header("FL leg variables")]
@@ -176,19 +177,14 @@ public class Robot : MonoBehaviour {
         Return true if any collision in joints, otherwise false
         */
         bool res = false;
-        // Check joint0
         joints[0].localRotation = Quaternion.Euler(angles[0], 0, 0);
-        var jointCollision = InCollision(joints[0]);
-        if ( jointCollision ){
-            res = res || jointCollision;
-        }
-        // Check joint1
+        res = res || InCollision(joints[0]);
+        
         joints[1].localRotation = Quaternion.Euler(0, angles[1], 0);
-        jointCollision = InCollision(joints[1]);
-        if ( jointCollision ){
-            res = res || jointCollision;
-        }
+        res = res || InCollision(joints[1]);
+        
         joints[2].localRotation = Quaternion.Euler(0, angles[2], 0);
+        res = res || InCollision(joints[2]);
         return res;
     }
     private bool InCollision(Transform obj){
@@ -214,8 +210,8 @@ public class Robot : MonoBehaviour {
                 RaycastHit hit;
                 Vector3 direction = verts[j] - verts[i];
                 if (Physics.Raycast(verts[i], direction, out hit, direction.magnitude, ~(1 << 6))){
-                    Vector3 toBodyDirection = hit.point - transform.position;
-                    collisionData.Add(new Tuple<Vector3, Vector3>(toBodyDirection, hit.normal));
+                    Vector3 toBodyDirection = (transform.position - hit.point);
+                    collisionData.Add(new Tuple<Vector3, Vector3>(toBodyDirection, hit.normal * toBodyDirection.magnitude));
                     res = true;
                     if (isShowInCollision) Debug.DrawLine(verts[i], hit.point, Color.red);
                 }
@@ -230,6 +226,9 @@ public class Robot : MonoBehaviour {
         foreach (var heapPose in heapRelativePose) {
             Vector3 deltaRot = Vector3.ClampMagnitude(deltaRotation * heapPose - heapPose, dStep);
             Vector3 deltaTrans = Vector3.ClampMagnitude(deltaTransition, dStep);
+            // if (deltaRot.magnitude > dStep*0.5f){
+            //     deltaTrans = Vector3.zero;
+            // }
             deltas.Add(new Tuple<Vector3, Quaternion>(deltaTrans, Quaternion.FromToRotation(heapPose, heapPose + deltaRot)));
 
             if(isShow) Debug.DrawRay(transform.position + heapPose, deltaTrans + deltaRot, Color.red);
@@ -275,15 +274,15 @@ public class Robot : MonoBehaviour {
     public Vector3 accActiveDelta = Vector3.zero;
     public List<Vector3> GetLegDirectionsByMotion(
             List<Tuple<Vector3, Quaternion>> deltas,
-            List<Potential> lastPropagations,
-            bool isShow = false){
+            List<Potential> lastPropagations){
         // Find next active leg by biggest accumulated delta
         float maxAccumulated = float.MinValue;
-        for(int i = 0; i < accDeltaStep.Count; ++i)
+        for(int i = 0; i < accDeltaStep.Count; ++i){
             if (accDeltaStep[i].magnitude > maxAccumulated){
                 activeLeg = i;
                 maxAccumulated = accDeltaStep[i].magnitude;
             }
+        }
         // Debug.Log("active leg: " + activeLeg);
 
         List<Vector3> res = new List<Vector3>();
@@ -306,9 +305,9 @@ public class Robot : MonoBehaviour {
             
             res.Add(direction);
 
-            if (isShow) Debug.DrawRay(transform.position + heapRelativePose[i], accDeltaStep[i], Color.yellow);
-            if (isShow) Debug.DrawRay(transform.position + heapRelativePose[i], direction, Color.white);
-            if (isShow) Debug.DrawRay(transform.position + heapRelativePose[i] + delta, lastPropagations[i].GetPropagation(), Color.gray);
+            if (isShowPrimeDirections) Debug.DrawRay(transform.position + heapRelativePose[i], accDeltaStep[i], Color.yellow);
+            if (isShowPrimeDirections) Debug.DrawRay(transform.position + heapRelativePose[i], direction, Color.blue);
+            if (isShowPrimeDirections) Debug.DrawRay(transform.position + heapRelativePose[i] + delta, lastPropagations[i].GetPropagation(), Color.gray);
         }
         
         return res;
@@ -442,20 +441,18 @@ public class Robot : MonoBehaviour {
         // Filter potentials {potentials} for joints {jointsToApply} and IK function {inverseKinematicsFunc}
         potentials = filterPotentialsFunc(potentials, jointsToApply, inverseKinematicsFunc);
         if (potentials.Count == 0){
-            collisionData.Add(new Tuple<Vector3, Vector3>(-Vector3.up * 0.01f, Vector3.zero));
+            collisionData.Add(new Tuple<Vector3, Vector3>(-Vector3.up * 0.001f, Vector3.zero));
             Debug.Log("No feasuble potentials.");
             return false;
         }
         
-        // // Vector3 meanNormal = Vector3.zero;
-        // // int collisionCounter = 0;
         foreach (var potential in potentials) {
+            Vector3 pose = jointsToApply[1].position;
             bool isInCollision = IsAnglesInCollision(jointsToApply, potential.GetAngles(), false);
-            if (isInCollision){
+            if (isInCollision)
                 continue;
-            }
             resolvedPotentials.Add(potential);
-            if (isShowObstacleFreePotentials) Debug.DrawRay(jointsToApply[1].position, potential.GetPropagation(), Color.green);
+            if (isShowObstacleFreePotentials) Debug.DrawRay(pose, potential.GetPropagation(), Color.green);
             return true;
         }
         Debug.Log("No obstacle free potentials");
@@ -501,13 +498,18 @@ public class Robot : MonoBehaviour {
     public Vector3 GetDeviationVector(){
         Vector3 res = Vector3.zero;
         foreach (var item in collisionData) {
-            res += item.Item1;
+            res += (item.Item1 + item.Item2) * 0.5f;
         }
         if (collisionData.Count == 0)
             Debug.Log("Empty collisions");
         else {
             res /= collisionData.Count;
         }
+        Debug.DrawRay(transform.position, res, Color.gray);
         return res;
     }
+
+    // private List<float> GetAngles(){
+
+    // }
 }

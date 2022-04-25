@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Diagnostics;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -25,12 +27,12 @@ public class GlobalPlanner : MonoBehaviour {
                     graph.Add(node, parent);
                 }
             } else {
-                Debug.Log("No parent: " + parent + " for node: " + node);
+                UnityEngine.Debug.Log("No parent: " + parent + " for node: " + node);
             }
         }
         public List<Vector3Int> GetFullDiscretePath(Vector3Int endState){
             if (!graph.ContainsKey(endState)){
-                Debug.Log("No end state in graph: " + endState);
+                UnityEngine.Debug.Log("No end state in graph: " + endState);
                 return new List<Vector3Int>();
             }
             List<Vector3Int> path = new List<Vector3Int>{endState};
@@ -104,32 +106,31 @@ public class GlobalPlanner : MonoBehaviour {
     private float GetHeuristics(Vector3Int v){
         return v.magnitude;
     }
-    private Vector3Int GetFeasibleState(Vector3 v){
-        Vector3Int vDiscrete = voxelMap.GetDiscreteState(v);
-        // while (voxelMap.IsObstacle(vDiscrete))
-        //     vDiscrete.y += 1;
-        // while (!voxelMap.IsObstacle(vDiscrete + new Vector3Int(0, -1, 0)) && vDiscrete.y >= 0)
-        //     vDiscrete += new Vector3Int(0, -1, 0);
-        return vDiscrete;
-    }
     
-    public List<Vector3> GetGlobalPlan(Vector3 start, Vector3 goal){
-        Vector3Int startStateDescrete = GetFeasibleState(start);
-        Vector3Int goalStateDescrete = GetFeasibleState(goal);
-
+    public List<Vector3> GetGlobalPlan(Vector3 start, Vector3 goal, string label = "default"){
+        // Prepare to new calculations
         sortedQueue.Clear();
         visitedStates.Clear();
+
+        Vector3Int startStateDescrete = voxelMap.GetDiscreteState(start);
+        Vector3Int goalStateDescrete = voxelMap.GetDiscreteState(goal);
         Graph graph = new Graph(startStateDescrete);
         Insert(0.0f, startStateDescrete);
         visitedStates.Add(startStateDescrete, 0.0f);
 
+        Stopwatch sw = new Stopwatch();
+        sw.Start();
+        // Start algorithm
         while (sortedQueue.Count > 0){
             Vector3Int currentState = sortedQueue[0].Item2;
             sortedQueue.RemoveAt(0);
 
             if (currentState == goalStateDescrete){
-                var pathDiscrete = graph.GetFullDiscretePath(currentState);
-                return GetContinuousPlan(pathDiscrete);
+                sw.Stop();
+                List<Vector3Int> pathDiscrete = graph.GetFullDiscretePath(currentState);
+                List<Vector3> path = GetContinuousPlan(pathDiscrete);
+                SaveLog(label, sw.ElapsedMilliseconds, pathDiscrete);
+                return path;
             }
 
             List<Vector3Int> actions = GetActionSpace();
@@ -138,45 +139,13 @@ public class GlobalPlanner : MonoBehaviour {
                 Vector3Int nextState = currentState + action;
                 if (voxelMap.IsObstacle(nextState)){
                     visitedStates[nextState] = Mathf.Infinity;
-
-                    {
-                        // Vector3Int lifting = new Vector3Int(0, 1, 0);
-                        // while (voxelMap.IsObstacle(nextState + lifting) && (Mathf.Abs(lifting.y) < UpDownTh)){
-                        //     visitedStates[nextState + lifting] = Mathf.Infinity;
-                        //     lifting.y += 1;
-                        // }
-                        // if (voxelMap.IsObstacle(nextState + lifting)){
-                        //     visitedStates[nextState] = Mathf.Infinity;
-                        //     continue;
-                        // } else {
-                        //     if (Mathf.Abs(action.x) == Mathf.Abs(action.z)){
-                        //         continue;
-                        //     } else {
-                        //         action += lifting;
-                        //         nextState += lifting;
-                        //     }
-                        // }
-                    }
-                }
-                
-                {
-                    // Vector3Int descent = new Vector3Int(0, -1, 0);
-                    // while (!voxelMap.IsObstacle(nextState + descent) && (Mathf.Abs(descent.y) < UpDownTh)){
-                    //     descent.y -= 1;
-                    // }
-                    // if (voxelMap.IsObstacle(nextState + descent)){
-                    //     descent.y += 1;
-                    //     if (descent.y != 0 && (Mathf.Abs(action.x) == Mathf.Abs(action.z))){
-                    //         continue;
-                    //     } else {
-                    //         action += descent;
-                    //         nextState += descent;
-                    //     }
-                    // } else {
-                    //     continue;
-                    // }
-                    // action += voxelMap.GetAction(currentState);
-                    // nextState += voxelMap.GetAction(currentState);
+                    continue;
+                } else {
+                    Vector3Int descent = new Vector3Int(0, -1, 0);
+                    while (!voxelMap.IsObstacle(nextState + descent) && (Mathf.Abs(descent.y) < UpDownTh))
+                        descent.y -= 1;
+                    if (!(voxelMap.IsObstacle(nextState + descent) && (Mathf.Abs(descent.y) < UpDownTh)))
+                        continue;
                 }
 
                 bool isVisited = visitedStates.ContainsKey(nextState);
@@ -200,6 +169,8 @@ public class GlobalPlanner : MonoBehaviour {
                 }
             }
         }
+        sw.Stop();
+        SaveLog(label, sw.ElapsedMilliseconds, new List<Vector3Int>());
         return new List<Vector3>();
     }
     private List<Vector3> GetContinuousPlan(List<Vector3Int> plan){
@@ -230,5 +201,31 @@ public class GlobalPlanner : MonoBehaviour {
             newObj.gameObject.name = "global " + globalPlanStates.Count.ToString();
             globalPlanStates.Add(newObj);
         }
+    }
+    private void SaveLog(string label, long time, List<Vector3Int> dPath){
+        string _fullPath = "D:/catkin_ws/src/VRPP_ROS/launch/";
+        
+        StreamWriter file = new StreamWriter(_fullPath + label + "_global.txt", append: false);
+        file.Write("time: " + time + "\n");
+        foreach (var item in dPath)
+            file.Write(FormatVector3Int(item) + "\n");
+        file.Close();
+
+        voxelMap.SaveWeightMap(_fullPath, label);
+        SaveActionMap(_fullPath, label);
+        
+    }
+    private string FormatVector3Int(Vector3Int v){
+        return v.x.ToString() + " " + v.y.ToString() + " " + v.z.ToString();
+    }
+    private void SaveActionMap(string _fullPath, string label){
+        StreamWriter file = new StreamWriter(_fullPath + label + "_action.txt", append: false);
+        foreach (var pose in actionMap){
+            foreach (var action in pose.Value)
+            {
+                file.Write(FormatVector3Int(pose.Key) + ";" + action.Key.ToString() + ";" + action.Value + "\n"); 
+            }
+        }
+        file.Close();
     }
 }
