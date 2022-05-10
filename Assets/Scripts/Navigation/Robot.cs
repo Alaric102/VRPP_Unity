@@ -7,9 +7,9 @@ using UnityEngine;
 public class Robot : MonoBehaviour {
     private bool isShowPotentialsSphere = false;
     private bool isShowFeasiblePotentials = false;
-    private bool isShowObstacleFreePotentials = true;
+    private bool isShowObstacleFreePotentials = false;
     private bool isShowInCollision = false;
-    private bool isShowPrimeDirections = true;
+    private bool isShowPrimeDirections = false;
     private class Leg {
         public Leg(Transform robot, Transform zeroJoint){
             joint0 = zeroJoint;
@@ -424,6 +424,11 @@ public class Robot : MonoBehaviour {
         }
         return feasiblePotentials;
     }
+    private void ResetLegJoits(List<Transform> joints){
+        joints[0].localRotation = Quaternion.Euler(0, 0, 0);
+        joints[1].localRotation = Quaternion.Euler(0, 0, 0);
+        joints[2].localRotation = Quaternion.Euler(0, 0, 0);
+    }
     private bool IsObstacleFreeExists(
             List<Transform> jointsToApply,
             Vector3 primeDirection,
@@ -434,7 +439,7 @@ public class Robot : MonoBehaviour {
         // Get potentials around pose {jointsToApply[1].position} with direction {primeDirection} sorted by {sortPotentialsFunc}
         List<Potential> potentials = GetPotentials(jointsToApply[1].position, primeDirection, sortPotentialsFunc);
         if (potentials.Count == 0){
-            Debug.Log("No potentials.");
+            // Debug.Log("No potentials.");
             return false;
         }
         
@@ -442,12 +447,13 @@ public class Robot : MonoBehaviour {
         potentials = filterPotentialsFunc(potentials, jointsToApply, inverseKinematicsFunc);
         if (potentials.Count == 0){
             collisionData.Add(new Tuple<Vector3, Vector3>(-Vector3.up * 0.001f, Vector3.zero));
-            Debug.Log("No feasuble potentials.");
+            // Debug.Log("No feasuble potentials.");
             return false;
         }
         
         foreach (var potential in potentials) {
             Vector3 pose = jointsToApply[1].position;
+            ResetLegJoits(jointsToApply);
             bool isInCollision = IsAnglesInCollision(jointsToApply, potential.GetAngles(), false);
             if (isInCollision)
                 continue;
@@ -455,10 +461,10 @@ public class Robot : MonoBehaviour {
             if (isShowObstacleFreePotentials) Debug.DrawRay(pose, potential.GetPropagation(), Color.green);
             return true;
         }
-        Debug.Log("No obstacle free potentials");
+        // Debug.Log("No obstacle free potentials");
         return false;
     }
-    public bool IsPropagatable(List<Vector3> directions){
+    public bool IsPropagatable(List<Vector3> directions, List<Vector3> lastDirections){
         bool res = true;
 
         for (int i = 0; i < heapRelativePose.Count; i++) {
@@ -509,7 +515,12 @@ public class Robot : MonoBehaviour {
         return res;
     }
 
-    // private List<float> GetAngles(){
-
-    // }
+    public List<float> GetAngles(){
+        List<float> res = new List<float>();
+        foreach (var potential in resolvedPotentials)
+            foreach (var angle in potential.GetAngles())
+                res.Add(angle);
+        
+        return res;
+    }
 }

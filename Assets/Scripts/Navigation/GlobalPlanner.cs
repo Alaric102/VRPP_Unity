@@ -101,7 +101,7 @@ public class GlobalPlanner : MonoBehaviour {
                 additionalCost = actions[action];
             }
         }
-        return 1 + additionalCost;
+        return action.magnitude + additionalCost;
     }
     private float GetHeuristics(Vector3Int v){
         return v.magnitude;
@@ -220,6 +220,7 @@ public class GlobalPlanner : MonoBehaviour {
     }
     private void SaveActionMap(string _fullPath, string label){
         StreamWriter file = new StreamWriter(_fullPath + label + "_action.txt", append: false);
+        file.Write(FormatVector3Int(voxelMap.GetMapSize()) + "\n");
         foreach (var pose in actionMap){
             foreach (var action in pose.Value)
             {

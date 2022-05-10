@@ -18,8 +18,9 @@ public class LocalPlanner : MonoBehaviour {
     private List<Vector3> deviations = new List<Vector3>();
     private int backTo = 0;
     private Stopwatch sw = new Stopwatch();
-    private int replanningCounter = 0;
     private string label_ = "ildar";
+    private int planningCounter = 0;
+    private int replanningCounter = 0;
     private void ClearStates(){ // Clear all local planner states, achieved states and states to acheive
         ClearStatesToAchieve();
         ClearAcheivedStates();
@@ -138,18 +139,24 @@ public class LocalPlanner : MonoBehaviour {
             if (voxelMap.GetDiscreteState(actualGoal) != voxelMap.GetDiscreteState(correctedGoal)){  
                 // UnityEngine.Debug.Log("Inform gPlanner about large displacement.\n" + 
                 //     voxelMap.GetDiscreteState(actualGoal) + " -> " + voxelMap.GetDiscreteState(correctedGoal) );
-
-                Vector3 lastReachedPose = GetLastReachedGoal(backTo++);
-                ForgetReachedAfter(lastReachedPose); ForgetBranchToGoal(actualGoal);
-
-                currentState = goalsToStates[lastReachedPose][goalsToStates[lastReachedPose].Count - 1];
-                currentState.gameObject.SetActive(true);
                 
-                Vector3Int action = voxelMap.GetDiscreteState(actualGoal) - voxelMap.GetDiscreteState(currentState.position);
-                gPlanner.SetActionCost(action, voxelMap.GetDiscreteState(currentState.position), backTo/26.0f);
+                // Vector3 nextAfterBackUp = GetLastReachedGoal( (backTo == 0) ? 0 : backTo - 1 );
+                // Vector3 backUpState = GetLastReachedGoal(backTo++);
+                // 
+                // gPlanner.SetActionCost(actionFromBackup, voxelMap.GetDiscreteState(backUpState), deviation.magnitude);
                 voxelMap.SetWeight(voxelMap.GetDiscreteState(actualGoal), deviation.magnitude);
 
-                GetNewGlobalPlan(currentState, goalState, label_ + "_" + replanningCounter.ToString());
+                Vector3 lastReached = GetLastReachedGoal(0);
+                Vector3Int action = voxelMap.GetDiscreteState(actualGoal) - voxelMap.GetDiscreteState(lastReached);
+                gPlanner.SetActionCost(action, voxelMap.GetDiscreteState(lastReached), deviation.magnitude);
+
+                Vector3 backUpState = GetLastReachedGoal(backTo++);
+                ForgetReachedAfter(backUpState); ForgetBranchToGoal(actualGoal);
+
+                currentState = goalsToStates[backUpState][goalsToStates[backUpState].Count - 1];
+                currentState.gameObject.SetActive(true);
+
+                GetNewGlobalPlan(currentState, goalState, label_ + planningCounter.ToString());
                 deviation = Vector3.zero;
                 return;
             }
@@ -200,11 +207,14 @@ public class LocalPlanner : MonoBehaviour {
             nextRobot.accActiveDelta = currentRobot.accActiveDelta;
 
             // Find prime leg directions from last motion
-            List<Robot.Potential> lastDirecction =  currentRobot.resolvedPotentials;
-            List<Vector3> nextDirections = nextRobot.GetLegDirectionsByMotion(heapMovements, lastDirecction);
-
+            List<Robot.Potential> lastPotentials =  currentRobot.resolvedPotentials;
+            List<Vector3> nextDirections = nextRobot.GetLegDirectionsByMotion(heapMovements, lastPotentials);
+            List<Vector3> lastDirections = new List<Vector3>();
+            foreach (var item in lastPotentials){
+                lastDirections.Add(item.GetPropagation());
+            }
             // Check propagated state
-            if (!nextRobot.IsPropagatable(nextDirections)){
+            if (!nextRobot.IsPropagatable(nextDirections, lastDirections)){
                 Vector3 newDeviation = Vector3.ClampMagnitude(nextRobot.GetDeviationVector(), dStep);
                 deviations.Add(newDeviation);
                 deviation += newDeviation;
@@ -213,7 +223,7 @@ public class LocalPlanner : MonoBehaviour {
                 // UnityEngine.Debug.Log("Impossible to propagate." +
                 //     " NewDeviation: " + newDeviation.magnitude + ", total deviation: " + deviation.magnitude);
 
-                voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), newDeviation.magnitude);
+                // voxelMap.SetWeight(voxelMap.GetDiscreteState(nextState.position), newDeviation.magnitude);
 
                 // nextState is invalid for further propagation
                 Destroy(nextState.gameObject);
@@ -239,18 +249,22 @@ public class LocalPlanner : MonoBehaviour {
             SaveLog(label_, sw.ElapsedMilliseconds);
             // Navigation navigation = transform.GetComponent<Navigation>();
             // navigation.SetStartState(currentState);
+        } else if (++planningCounter < 20){
+            StartPlanning(startState, goalState);
         }
     }
-    public void StartPlanning(Transform start, Transform goal, string label = "ildar"){
+    public void StartPlanning(Transform start, Transform goal, string label = "ildarTest2"){
+        UnityEngine.Debug.Log("started: " + planningCounter);
         ClearStates();
         deviations.Clear();
         sw.Reset();
         replanningCounter = 0;
+        backTo = 0;
         label_ = label;
 
         startState = start;
         goalState = goal;
-        if (!GetNewGlobalPlan(start, goal, label_)){
+        if (!GetNewGlobalPlan(start, goal, label_ + planningCounter.ToString())){
             return;
         }
         
@@ -268,7 +282,7 @@ public class LocalPlanner : MonoBehaviour {
         currentRobot.activeLeg = -1;
 
         List<Vector3> lastResolved = new List<Vector3>{-Vector3.up, -Vector3.up, -Vector3.up, -Vector3.up};
-        if (!currentRobot.IsPropagatable(lastResolved))
+        if (!currentRobot.IsPropagatable(lastResolved, lastResolved))
             return;
         List<Robot.Potential> resolvedPotentials = currentRobot.resolvedPotentials;
         currentRobot.activeLeg = 0;
@@ -284,8 +298,8 @@ public class LocalPlanner : MonoBehaviour {
     }
 
     public void Replan(Vector3 newPose, Vector3 oldPose){
-        voxelMap.SetWeight(voxelMap.GetDiscreteState(oldPose), 1.0f);
-        voxelMap.SetWeight(voxelMap.GetDiscreteState(newPose), -1.0f);
+        voxelMap.SetWeight(voxelMap.GetDiscreteState(oldPose), 10.0f);
+        voxelMap.SetWeight(voxelMap.GetDiscreteState(newPose), -10.0f);
         StartPlanning(startState, goalState);
     }
     public void StopPlanning(){
@@ -310,19 +324,37 @@ public class LocalPlanner : MonoBehaviour {
         return res;
     }
     private void SaveLog(string label, long time){
+        
         string _fullPath = "D:/catkin_ws/src/VRPP_ROS/launch/";
-        StreamWriter file = new StreamWriter(_fullPath + label + "_local.txt", append: false);
+        StreamWriter file = new StreamWriter(_fullPath + label + planningCounter.ToString() + "_local.txt", append: false);
+        file.Write("replanningCounter: " + replanningCounter + "\n");
         file.Write("time: " + time + "\n");
         foreach (var goal in goalsToStates){
             foreach (var state in goal.Value) {
                 file.Write(FormatVector3(state.position) + ";" + 
-                    FormatVector3(state.rotation.eulerAngles));
+                    FormatVector3(state.rotation.eulerAngles) + "\n");
             }
         }
         file.Close();
-        file = new StreamWriter(_fullPath + label + "_deviations.txt", append: false);
+
+        file = new StreamWriter(_fullPath + label + planningCounter.ToString() + "_deviations.txt", append: false);
         foreach (var dev in deviations) {
-            file.Write(FormatVector3(dev));
+            file.Write(FormatVector3(dev) + "\n");
+        }
+        file.Close();
+
+        file = new StreamWriter(_fullPath + label + planningCounter.ToString() + "_angles.txt", append: false);;
+        foreach (var goal in goalsToStates){
+            foreach (var state in goal.Value) {
+                Robot robot = state.GetComponent<Robot>();
+                var angles = robot.GetAngles();
+                string s = angles[0].ToString();
+                for (int i = 1; i < angles.Count; i++)
+                {
+                    s += " " + angles[i].ToString();
+                }
+                file.Write(s + "\n");
+            }
         }
         file.Close();
     }

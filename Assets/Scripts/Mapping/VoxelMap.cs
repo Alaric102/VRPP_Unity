@@ -23,6 +23,9 @@ public class VoxelMap : MonoBehaviour
         actionMap = new Dictionary<Vector3Int, Vector3Int>(mapSize_.x * mapSize_.y * mapSize_.z);
         Debug.Log("New voxel size: " + mapSize_);
     }
+    public Vector3Int GetMapSize(){
+        return mapSize_;
+    }
     public void SetGridSize(Vector3 v){
         gridSize_ = v;
         Debug.Log("New voxel grid size: " + GetVectorString(gridSize_));
@@ -39,8 +42,8 @@ public class VoxelMap : MonoBehaviour
     public void SetObstacleCell(Vector3Int vDiscrete, Vector3 vCont){
         if (!voxelMap.ContainsKey(vDiscrete))
             voxelMap.Add(vDiscrete, vCont);
-        if (!weightMap.ContainsKey(vDiscrete))
-            weightMap.Add(vDiscrete, Mathf.Infinity);
+        // if (!weightMap.ContainsKey(vDiscrete))
+        //     weightMap.Add(vDiscrete, Mathf.Infinity);
     }
     public void SetWeight(Vector3Int vD, float cost){
         if (weightMap.ContainsKey(vD))
@@ -147,8 +150,11 @@ public class VoxelMap : MonoBehaviour
     }
     public void SaveWeightMap(string _fullPath, string label){
         StreamWriter file = new StreamWriter(_fullPath + label + "_weight.txt", append: false);
-        foreach (var item in weightMap)
-            file.Write(FormatVector3Int(item.Key) + ";" + item.Value.ToString() + "\n");
+        file.Write(FormatVector3Int(mapSize_) + "\n");
+        foreach (var item in weightMap){
+            file.Write(FormatVector3Int(item.Key) + ";" + item.Value + "\n");
+            // Debug.Log(item.Key + ": " + item.Value);
+        }
         file.Close();
     }
     private string FormatVector3Int(Vector3Int v){
