@@ -29,7 +29,7 @@ def LoadLocalPlan(prefix: str, folder: str = "D:/catkin_ws/src/VRPP_ROS/launch/"
         replanningCounts = ExtractInt(words[1])
         # Get time in ms
         words = f.readline().split(maxsplit=2)
-        time_ms = ExtractFloat(words[1])
+        time_sec = ExtractFloat(words[1])/1000
         
         line = f.readline()
         while line:
@@ -44,7 +44,7 @@ def LoadLocalPlan(prefix: str, folder: str = "D:/catkin_ws/src/VRPP_ROS/launch/"
             rotations.append(rotation)
             line = f.readline()
         f.close()
-        return True, positions, rotations, time_ms, replanningCounts
+        return True, positions, rotations, time_sec, replanningCounts
     except FileNotFoundError:
         print("No such file:" , full_path)
         return False, positions, rotations, np.inf, 0
@@ -90,7 +90,7 @@ def LoadWeightPlan(prefix: str, folder: str = "D:/catkin_ws/src/VRPP_ROS/launch/
         # Get voxelMap size
         mapSize_words = f.readline().split(maxsplit=3)
         mapSize = ExtractVectorInt(mapSize_words)
-        mapArray = np.full(mapSize, 0.0, dtype=float)
+        mapArray = np.full(mapSize, 0, dtype=float)
         
         line = f.readline()
         # self.__voxelMapData = np.full(self.__voxelMapSize, False, dtype=bool)
@@ -129,3 +129,25 @@ def LoadGlobalPlan(prefix: str, folder: str = "D:/catkin_ws/src/VRPP_ROS/launch/
     except FileNotFoundError:
         print("No such file:" , full_path)
         return False, positions, None
+
+def LoadActionPlan(prefix: str, folder: str = "D:/catkin_ws/src/VRPP_ROS/launch/") -> bool:
+    full_path = folder + prefix + "_action.txt"
+    mapDict = {}
+    try:
+        f = open(full_path)
+        # Get voxelMap size
+        mapSize_words = f.readline().split(maxsplit=3)
+        mapSize = ExtractVectorInt(mapSize_words)
+        mapArray = 0
+        
+        line = f.readline()
+        # self.__voxelMapData = np.full(self.__voxelMapSize, False, dtype=bool)
+        while line:
+            mapArray += 1
+                
+            line = f.readline()
+        f.close()
+        return True, mapArray
+    except FileNotFoundError:
+        print("No such file:" , full_path)
+        return False, mapArray
